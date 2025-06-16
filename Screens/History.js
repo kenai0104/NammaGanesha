@@ -32,6 +32,8 @@ const History = ({ navigation, route }) => {
   const [loading, setLoading] = useState(true);
   const { id } = route.params;
 
+  console.log(id);
+
   useEffect(() => {
     const fetchHistory = async () => {
       try {
