@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Helper function to format date and time
 const formatDateTime = (isoString) => {
@@ -27,33 +28,52 @@ const formatDateTime = (isoString) => {
   return dateObj.toLocaleString('en-US', options);
 };
 
-const History = ({ navigation, route }) => {
+const History = ({ navigation }) => {
   const [historyData, setHistoryData] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { id } = route.params;
+const [id, setId] = useState('');
 
-  
 
-  useEffect(() => {
-    const fetchHistory = async () => {
-      try {
-        const response = await fetch(`https://japa-lfgw.onrender.com/posts/${id}`);
-        const data = await response.json();
-
-        if (response.ok) {
-          setHistoryData(data);
-        } else {
-          console.warn('Error fetching history:', data.message || 'Failed to load history.');
-        }
-      } catch (error) {
-        console.error('Error fetching history:', error.message);
-      } finally {
+useEffect(() => {
+  const fetchHistory = async () => {
+    try {
+      const storedUser = await AsyncStorage.getItem('user');
+      if (!storedUser) {
+        console.warn('User not found in AsyncStorage');
         setLoading(false);
+        return;
       }
-    };
 
-    fetchHistory();
-  }, []);
+      const user = JSON.parse(storedUser);
+      const storedId = user?.id;
+
+      if (!storedId) {
+        console.warn('User ID not found');
+        setLoading(false);
+        return;
+      }
+
+      setId(storedId);
+
+      const response = await fetch(`https://japa-lfgw.onrender.com/posts/${storedId}`);
+      const data = await response.json();
+
+      if (response.ok) {
+        setHistoryData(data);
+      } else {
+        console.warn('Error fetching history:', data.message || 'Failed to load history.');
+      }
+    } catch (error) {
+      console.error('Error fetching history:', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchHistory();
+}, []);
+
+
 
   const goBack = () => {
     navigation.goBack();

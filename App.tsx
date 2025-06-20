@@ -6,6 +6,8 @@ import Home from './Screens/Home';
 import Login from './Screens/Login';
 import Registration from './Screens/Registration';
 import History from './Screens/History';
+import RequestForm from './Screens/RequestForm';
+import Success from './Screens/Success';
 
 
 const Stack = createNativeStackNavigator();
@@ -37,6 +39,16 @@ function App(): React.JSX.Element {
         <Stack.Screen
           name="History"
           component={History}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="RequestForm"
+          component={RequestForm}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="Success"
+          component={Success}
           options={{ headerShown: false }}
         />
       </Stack.Navigator>

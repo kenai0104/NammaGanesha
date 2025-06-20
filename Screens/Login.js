@@ -10,7 +10,7 @@ import {
   Platform,
   ActivityIndicator,
   Modal,
-  Image
+  Image,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
@@ -23,7 +23,6 @@ const Login = () => {
   const [input, setInput] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-
   const [customAlert, setCustomAlert] = useState({
     visible: false,
     title: '',
@@ -33,25 +32,21 @@ const Login = () => {
   const isPhone = /^[0-9]*$/.test(input);
 
   useEffect(() => {
+    const checkLogin = async () => {
+      const user = await AsyncStorage.getItem('user');
+      if (user) {
+        const { name, id } = JSON.parse(user);
+        navigation.replace('Home', { name, id }); // Skip login screen
+      }
+    };
+
+    checkLogin();
+
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 1000,
       useNativeDriver: true,
     }).start();
-
-    const checkLogin = async () => {
-      try {
-        const userData = await AsyncStorage.getItem('user');
-        if (userData) {
-          const { name, id } = JSON.parse(userData);
-          navigation.replace('Home', { name, id });
-        }
-      } catch (err) {
-        console.log('Auto-login error:', err);
-      }
-    };
-
-    checkLogin();
   }, []);
 
   const showAlert = (title, message) => {
@@ -60,7 +55,7 @@ const Login = () => {
 
   const handleLogin = async () => {
     if (!input || !password) {
-      showAlert('Input Error', 'Give Proper Inputs.');
+      showAlert('Input Error', 'Please enter all fields.');
       return;
     }
 
@@ -79,8 +74,7 @@ const Login = () => {
         const { name, _id } = data;
 
         if (!name || !_id) {
-          showAlert('Data Error', 'Incomplete user data received.');
-          setLoading(false);
+          showAlert('Error', 'Incomplete user data received.');
           return;
         }
 
@@ -90,7 +84,7 @@ const Login = () => {
         showAlert('Login Failed', data.error || 'Invalid credentials.');
       }
     } catch (error) {
-      showAlert('Network Error', 'Could not connect to the server.');
+      showAlert('Network Error', 'Unable to reach the server.');
     } finally {
       setLoading(false);
     }
@@ -102,10 +96,10 @@ const Login = () => {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.innerContainer}
       >
-      <Image
-  source={require('../assets/result.png')} // Replace with your actual image path
-  style={styles.logo}
-/>
+        <Image
+          source={require('../assets/result.png')}
+          style={styles.logo}
+        />
 
         <Animated.View style={[styles.formContainer, { opacity: fadeAnim }]}>
           <Text style={styles.title}>Your Japa Journey</Text>
@@ -122,14 +116,12 @@ const Login = () => {
 
           <TextInput
             style={[styles.input, styles.passwordInput]}
-            placeholder="Enter 4 digit pin"
+            placeholder="Enter 4 digit PIN"
             value={password}
             onChangeText={setPassword}
             placeholderTextColor="#555"
             secureTextEntry
             keyboardType="numeric"
-            autoCapitalize="none"
-            autoCorrect={false}
             maxLength={4}
           />
 
@@ -150,7 +142,6 @@ const Login = () => {
           </TouchableOpacity>
         </Animated.View>
 
-        {/* Custom Modal Alert */}
         <Modal transparent visible={customAlert.visible} animationType="fade">
           <View style={styles.alertOverlay}>
             <View style={styles.alertBox}>
@@ -158,7 +149,9 @@ const Login = () => {
               <Text style={styles.alertMessage}>{customAlert.message}</Text>
               <TouchableOpacity
                 style={styles.alertButton}
-                onPress={() => setCustomAlert({ visible: false, title: '', message: '' })}
+                onPress={() =>
+                  setCustomAlert({ visible: false, title: '', message: '' })
+                }
               >
                 <Text style={styles.alertButtonText}>OK</Text>
               </TouchableOpacity>
@@ -173,22 +166,19 @@ const Login = () => {
 export default Login;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   innerContainer: {
     flex: 1,
     justifyContent: 'center',
     paddingHorizontal: 30,
   },
   logo: {
-  width: 120,
-  height: 120,
-  resizeMode: 'contain',
-  alignSelf: 'center',
-  marginBottom: 20,
-},
-
+    width: 120,
+    height: 120,
+    resizeMode: 'contain',
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
   formContainer: {
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     padding: 25,
@@ -212,7 +202,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   passwordInput: {
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif',
     color: '#000',
   },
   button: {
@@ -236,8 +225,6 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
     fontSize: 14,
   },
-
-  // Modal alert styles
   alertOverlay: {
     position: 'absolute',
     top: 0,

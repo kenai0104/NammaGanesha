@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const Register = () => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -44,40 +45,54 @@ const Register = () => {
     setModalVisible(true);
   };
 
-  const handleRegister = async () => {
-    if (!name || !email || !phone || !password || !confirmPassword) {
-      showAlert('Validation Error', 'All fields are required');
-      return;
+const handleRegister = async () => {
+  console.log("Register button pressed");
+
+  if (!name || !email || !phone || !password || !confirmPassword) {
+    console.warn("Validation failed: missing fields");
+    showAlert('Validation Error', 'All fields are required');
+    return;
+  }
+
+  if (password !== confirmPassword) {
+    console.warn("Password mismatch");
+    showAlert('Password Mismatch', 'Passwords do not match');
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    const bodyData = { name, email, phone, password };
+    console.log("Sending data to backend:", bodyData);
+
+    const response = await fetch('https://japa-lfgw.onrender.com/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(bodyData),
+    });
+
+    const data = await response.json();
+    console.log("Server response:", data);
+
+    if (response.ok) {
+  console.log("Registration successful, saving to AsyncStorage...");
+  await AsyncStorage.setItem('user', JSON.stringify({ id: data.userId, name: data.name }));
+  navigation.replace('Login');
+}
+
+     else {
+      console.warn("Registration failed:", data.message);
+      showAlert('Registration Failed', data.message || 'Something went wrong.');
     }
+  } catch (error) {
+    console.error("Network error:", error.message);
+    showAlert('Network Error', 'Could not connect to the server. Please try again.');
+  } finally {
+    setLoading(false);
+  }
+};
 
-    if (password !== confirmPassword) {
-      showAlert('Password Mismatch', 'Passwords do not match');
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const bodyData = { name, email, phone, password };
-      const response = await fetch('https://japa-lfgw.onrender.com/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(bodyData),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        navigation.replace('Login');
-      } else {
-        showAlert('Registration Failed', data.message || 'Something went wrong.');
-      }
-    } catch (error) {
-      showAlert('Network Error', 'Could not connect to the server. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <LinearGradient colors={['#FF7E5F', '#FEB47B']} style={styles.container}>
@@ -86,7 +101,7 @@ const Register = () => {
         style={styles.innerContainer}
       >
         <Image
-  source={require('../assets/reg.png')} // Replace with your actual image path
+  source={require('../assets/reg.png')} 
   style={styles.logo}
 />
 

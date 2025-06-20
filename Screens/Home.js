@@ -14,8 +14,9 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Footer from './Footer';
 
-const Home = ({ navigation, route }) => {
+const Home = ({ navigation }) => {
   const [formData, setFormData] = useState({
     name: '',
     tower: '',
@@ -27,18 +28,48 @@ const Home = ({ navigation, route }) => {
 
   const [loading, setLoading] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
-  const { name, id } = route.params;
+  const [nameA, setName] = useState('');
+  const [id, setId] = useState('');
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const currentDateTime = new Date().toLocaleString();
-      setFormData((prevData) => ({
-        ...prevData,
-        dateTime: currentDateTime,
-      }));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
+  // ✅ Fetch user data once
+useEffect(() => {
+  const loadUser = async () => {
+    try {
+      const storedUser = await AsyncStorage.getItem('user');
+      if (storedUser) {
+        const user = JSON.parse(storedUser);
+        console.log("Fetched Name:", user.name);
+        console.log("Fetched ID:", user.id);
+
+        setName(user.name);
+        setId(user.id);
+
+        setFormData((prevData) => ({
+          ...prevData,
+          name: user.name,
+        }));
+      } else {
+        console.warn('No user found in AsyncStorage');
+      }
+    } catch (err) {
+      console.error('Error fetching user from AsyncStorage:', err);
+    }
+  };
+
+  loadUser();
+
+  // ⏱️ Start interval to update dateTime
+  const interval = setInterval(() => {
+    setFormData((prevData) => ({
+      ...prevData,
+      dateTime: new Date().toLocaleString(),
+    }));
+  }, 1000); // update every second
+
+  // Cleanup on unmount
+  return () => clearInterval(interval);
+}, []);
+
 
   const handleLogout = async () => {
     await AsyncStorage.removeItem('user');
@@ -57,6 +88,10 @@ const Home = ({ navigation, route }) => {
       newErrors.japaCount = 'Japa Count is required.';
     } else if (isNaN(parseInt(japaCount)) || parseInt(japaCount) <= 0) {
       newErrors.japaCount = 'Japa Count must be a positive number.';
+    }
+
+    if (!id) {
+      newErrors.general = 'User ID is missing. Please log in again.';
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -85,11 +120,13 @@ const Home = ({ navigation, route }) => {
       });
 
       const data = await response.json();
+      console.log('Submission response:', data);
+
       setLoading(false);
 
       if (response.ok) {
         setFormData({
-          name: '',
+          name,
           tower: '',
           flat: '',
           japaName: '',
@@ -102,8 +139,13 @@ const Home = ({ navigation, route }) => {
       }
     } catch (error) {
       setLoading(false);
+      console.error('Submit error:', error);
       setValidationErrors({ general: 'Error: Could not connect to the server.' });
     }
+  };
+
+  const goToRequest = () => {
+    navigation.navigate('RequestForm', { id });
   };
 
   const goToHistory = () => {
@@ -113,15 +155,11 @@ const Home = ({ navigation, route }) => {
   return (
     <>
       <StatusBar backgroundColor="#FF7E5F" barStyle="light-content" />
-
       <LinearGradient colors={['#FF7E5F', '#FEB47B']} style={styles.headerGradient}>
         <SafeAreaView edges={['top']} style={styles.safeAreaTop}>
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>Hi {name}</Text>
+            <Text style={styles.headerTitle}>Hi {nameA}</Text>
             <View style={styles.iconContainer}>
-              <TouchableOpacity onPress={goToHistory}>
-                <Image source={require('../assets/history.png')} style={styles.headerIcon} />
-              </TouchableOpacity>
               <TouchableOpacity onPress={handleLogout}>
                 <Image source={require('../assets/power-off.png')} style={styles.headerIcon} />
               </TouchableOpacity>
@@ -131,22 +169,14 @@ const Home = ({ navigation, route }) => {
       </LinearGradient>
 
       <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.container}>
-        <Image
-  source={require('../assets/om.jpg')} // Replace with your actual image path
-  style={styles.logo}
-/>
-
+        <Image source={require('../assets/om.jpg')} style={styles.logo} />
         <ScrollView contentContainerStyle={styles.formContainer} showsVerticalScrollIndicator={false}>
           <View style={styles.formCard}>
             {['name', 'tower', 'flat', 'japaName', 'japaCount'].map((field, index) => (
               <View key={index} style={styles.inputGroup}>
                 <TextInput
                   style={styles.input}
-                  placeholder={
-                    field === 'japaCount'
-                      ? 'Japa Count'
-                      : field.charAt(0).toUpperCase() + field.slice(1)
-                  }
+                  placeholder={field === 'japaCount' ? 'Japa Count' : field.charAt(0).toUpperCase() + field.slice(1)}
                   keyboardType={field === 'japaCount' ? 'numeric' : 'default'}
                   value={formData[field]}
                   onChangeText={(text) => setFormData({ ...formData, [field]: text })}
@@ -157,7 +187,7 @@ const Home = ({ navigation, route }) => {
             ))}
 
             <TextInput
-              style={[styles.input, { backgroundColor: '#f0f0f0' }]}
+              style={[styles.input, { backgroundColor: '#f0f0f0', color: '#000' }]}
               placeholder="Date and Time"
               value={formData.dateTime}
               placeholderTextColor="#ccc"
@@ -170,50 +200,46 @@ const Home = ({ navigation, route }) => {
               </Text>
             )}
 
-            <LinearGradient colors={['#FF7E5F', '#FEB47B']} style={styles.submitButton}>
-              <TouchableOpacity onPress={handleSubmit} style={styles.buttonInner} disabled={loading}>
-                {loading ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Text style={styles.submitButtonText}>Submit</Text>
-                )}
-              </TouchableOpacity>
-            </LinearGradient>
+            <TouchableOpacity onPress={handleSubmit} style={styles.submitButton} disabled={loading}>
+              {loading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.submitButtonText}>Submit</Text>
+              )}
+            </TouchableOpacity>
           </View>
         </ScrollView>
       </SafeAreaView>
+
+      <Footer onHistoryPress={goToHistory} onRequestPress={goToRequest} />
     </>
   );
 };
 
 export default Home;
 
+// Styles
 const styles = StyleSheet.create({
   headerGradient: {
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
-    // borderBottomLeftRadius: 30,
-    // borderBottomRightRadius: 30,
     elevation: 10,
-    // backgroundColor: '#FF7E5F',
   },
-  safeAreaTop: {
-    // backgroundColor: '#FF7E5F',
-  },
+  safeAreaTop: {},
   container: {
     flex: 1,
     backgroundColor: '#ffeede',
   },
   header: {
-    height: 50,
+    height: 40,
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingBottom: 15,
+    paddingBottom: 10,
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
+    fontSize: 24,
+    fontWeight: '500',
     color: '#fff',
   },
   iconContainer: {
@@ -229,12 +255,11 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   logo: {
-  width: 120,
-  height: 120,
-  resizeMode: 'contain',
-  alignSelf: 'center',
-},
-
+    width: 120,
+    height: 120,
+    resizeMode: 'contain',
+    alignSelf: 'center',
+  },
   formCard: {
     backgroundColor: '#ffffff',
     borderRadius: 20,
@@ -263,18 +288,17 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   submitButton: {
+    backgroundColor: '#FF7E5F',
     borderRadius: 14,
     marginTop: 24,
     elevation: 5,
+    alignSelf: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
     shadowColor: '#FF7E5F',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.2,
     shadowRadius: 6,
-    overflow: 'hidden',
-  },
-  buttonInner: {
-    alignItems: 'center',
-    paddingVertical: 16,
   },
   submitButtonText: {
     color: '#fff',
