@@ -14,7 +14,6 @@ import {
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const Register = () => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -45,54 +44,52 @@ const Register = () => {
     setModalVisible(true);
   };
 
-const handleRegister = async () => {
-  console.log("Register button pressed");
-
-  if (!name || !email || !phone || !password || !confirmPassword) {
-    console.warn("Validation failed: missing fields");
-    showAlert('Validation Error', 'All fields are required');
-    return;
-  }
-
-  if (password !== confirmPassword) {
-    console.warn("Password mismatch");
-    showAlert('Password Mismatch', 'Passwords do not match');
-    return;
-  }
-
-  setLoading(true);
-
-  try {
-    const bodyData = { name, email, phone, password };
-    console.log("Sending data to backend:", bodyData);
-
-    const response = await fetch('https://japa-lfgw.onrender.com/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(bodyData),
-    });
-
-    const data = await response.json();
-    console.log("Server response:", data);
-
-    if (response.ok) {
-  console.log("Registration successful, saving to AsyncStorage...");
-  await AsyncStorage.setItem('user', JSON.stringify({ id: data.userId, name: data.name }));
-  navigation.replace('Login');
-}
-
-     else {
-      console.warn("Registration failed:", data.message);
-      showAlert('Registration Failed', data.message || 'Something went wrong.');
-    }
-  } catch (error) {
-    console.error("Network error:", error.message);
-    showAlert('Network Error', 'Could not connect to the server. Please try again.');
-  } finally {
-    setLoading(false);
-  }
+  const isValidEmail = (email) => {
+  const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return regex.test(email);
 };
 
+
+  const handleRegister = async () => {
+    if (!name ||!phone || !password || !confirmPassword) {
+      showAlert('Validation Error', 'All fields are required');
+      return;
+    }
+
+    if (!isValidEmail(email)) {
+        showAlert('Invalid Email', 'Please enter a valid email address');
+        return;
+      }
+
+
+    if (password !== confirmPassword) {
+      showAlert('Password Mismatch', 'Passwords do not match');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const bodyData = { name, email, phone, password };
+      const response = await fetch('https://japa-lfgw.onrender.com/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bodyData),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        navigation.replace('Login');
+      } else {
+        showAlert('Registration Failed', data.message || 'Something went wrong.');
+      }
+    } catch (error) {
+      showAlert('Network Error', 'Could not connect to the server. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <LinearGradient colors={['#FF7E5F', '#FEB47B']} style={styles.container}>
@@ -100,22 +97,27 @@ const handleRegister = async () => {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.innerContainer}
       >
-        <Image
-  source={require('../assets/reg.png')} 
-  style={styles.logo}
-/>
+        <View style={styles.logoWrapper}>
+  <Image
+    source={require('../assets/reg.png')} // Replace with your actual image path
+    style={styles.logo}
+  />
+</View>
 
         <Animated.View style={[styles.formContainer, { opacity: fadeAnim }]}>
           <Text style={styles.title}>Create Account</Text>
 
           <TextInput
-            style={styles.input}
-            placeholder="Name"
-            value={name}
-            onChangeText={setName}
-            placeholderTextColor="#555"
-          />
-
+              style={styles.input}
+              placeholder="Name"
+              value={name}
+              onChangeText={(text) => {
+                const alphabetOnly = text.replace(/[^A-Za-z ]/g, '');
+                setName(alphabetOnly);
+              }}
+              keyboardType="default"
+              placeholderTextColor="#555"
+            />
           <TextInput
             style={styles.input}
             placeholder="Email"
@@ -220,14 +222,21 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     elevation: 5,
   },
-  logo: {
+logoWrapper: {
+  marginTop: 16, // approx. 1rem
+  marginBottom: 32, // approx. 2rem
+  alignSelf: 'center',
+},
+logo: {
   width: 120,
   height: 120,
-  resizeMode: 'contain',
-  alignSelf: 'center',
-  marginBottom: 20,
+  borderRadius: 60, // Circular shape
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 0 },
+  shadowOpacity: 0.2,
+  shadowRadius: 10,
+  elevation: 5, // Android shadow
 },
-
   title: {
     fontSize: 24,
     fontWeight: '600',

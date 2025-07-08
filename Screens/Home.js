@@ -9,7 +9,9 @@ import {
   ScrollView,
   StatusBar,
   Platform,
+  Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -31,50 +33,56 @@ const Home = ({ navigation }) => {
   const [nameA, setName] = useState('');
   const [id, setId] = useState('');
 
-  // ✅ Fetch user data once
 useEffect(() => {
   const loadUser = async () => {
     try {
       const storedUser = await AsyncStorage.getItem('user');
       if (storedUser) {
         const user = JSON.parse(storedUser);
-        console.log("Fetched Name:", user.name);
-        console.log("Fetched ID:", user.id);
-
         setName(user.name);
         setId(user.id);
-
-        setFormData((prevData) => ({
-          ...prevData,
-          name: user.name,
-        }));
-      } else {
-        console.warn('No user found in AsyncStorage');
       }
     } catch (err) {
-      console.error('Error fetching user from AsyncStorage:', err);
+      console.error('AsyncStorage error:', err);
     }
   };
 
   loadUser();
 
-  // ⏱️ Start interval to update dateTime
   const interval = setInterval(() => {
     setFormData((prevData) => ({
       ...prevData,
       dateTime: new Date().toLocaleString(),
     }));
-  }, 1000); // update every second
+  }, 1000);
 
-  // Cleanup on unmount
   return () => clearInterval(interval);
 }, []);
 
 
-  const handleLogout = async () => {
-    await AsyncStorage.removeItem('user');
-    navigation.replace('Login');
-  };
+const handleLogout = () => {
+  Alert.alert(
+    "Confirm Logout",
+    "Are you sure you want to exit the app?",
+    [
+      {
+        text: "Cancel",
+        onPress: () => {},
+        style: "cancel",
+      },
+      {
+        text: "Yes",
+        onPress: async () => {
+          await AsyncStorage.removeItem('user');
+          navigation.replace('Login');
+        },
+        style: "destructive",
+      },
+    ],
+    { cancelable: true }
+  );
+};
+
 
   const handleSubmit = async () => {
     const { name, tower, flat, japaName, japaCount } = formData;
@@ -86,13 +94,11 @@ useEffect(() => {
     if (!japaName.trim()) newErrors.japaName = 'Japa Name is required.';
     if (!japaCount.trim()) {
       newErrors.japaCount = 'Japa Count is required.';
-    } else if (isNaN(parseInt(japaCount)) || parseInt(japaCount) <= 0) {
-      newErrors.japaCount = 'Japa Count must be a positive number.';
+    } else if (isNaN(japaCount) || parseInt(japaCount) <= 0) {
+      newErrors.japaCount = 'Must be a positive number.';
     }
 
-    if (!id) {
-      newErrors.general = 'User ID is missing. Please log in again.';
-    }
+    if (!id) newErrors.general = 'User ID missing. Please log in again.';
 
     if (Object.keys(newErrors).length > 0) {
       setValidationErrors(newErrors);
@@ -120,8 +126,6 @@ useEffect(() => {
       });
 
       const data = await response.json();
-      console.log('Submission response:', data);
-
       setLoading(false);
 
       if (response.ok) {
@@ -135,22 +139,16 @@ useEffect(() => {
         });
         navigation.navigate('History', { id });
       } else {
-        setValidationErrors({ general: data.message || 'Submission failed. Please try again.' });
+        setValidationErrors({ general: data.message || 'Submission failed' });
       }
     } catch (error) {
       setLoading(false);
-      console.error('Submit error:', error);
-      setValidationErrors({ general: 'Error: Could not connect to the server.' });
+      setValidationErrors({ general: 'Server error. Try again later.' });
     }
   };
 
-  const goToRequest = () => {
-    navigation.navigate('RequestForm', { id });
-  };
-
-  const goToHistory = () => {
-    navigation.navigate('History', { id });
-  };
+  const goToRequest = () => navigation.navigate('RequestForm', { id });
+  const goToHistory = () => navigation.navigate('History', { id });
 
   return (
     <>
@@ -158,59 +156,83 @@ useEffect(() => {
       <LinearGradient colors={['#FF7E5F', '#FEB47B']} style={styles.headerGradient}>
         <SafeAreaView edges={['top']} style={styles.safeAreaTop}>
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>Hi {nameA}</Text>
+            <View style={styles.nameWrapper}>
+              <Text
+                style={styles.headerTitle}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                Hi {nameA}
+              </Text>
+            </View>
             <View style={styles.iconContainer}>
               <TouchableOpacity onPress={handleLogout}>
                 <Image source={require('../assets/power-off.png')} style={styles.headerIcon} />
               </TouchableOpacity>
             </View>
           </View>
+
         </SafeAreaView>
       </LinearGradient>
 
-      <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.container}>
-        <Image source={require('../assets/om.jpg')} style={styles.logo} />
-        <ScrollView contentContainerStyle={styles.formContainer} showsVerticalScrollIndicator={false}>
-          <View style={styles.formCard}>
-            {['name', 'tower', 'flat', 'japaName', 'japaCount'].map((field, index) => (
-              <View key={index} style={styles.inputGroup}>
-                <TextInput
-                  style={styles.input}
-                  placeholder={field === 'japaCount' ? 'Japa Count' : field.charAt(0).toUpperCase() + field.slice(1)}
-                  keyboardType={field === 'japaCount' ? 'numeric' : 'default'}
-                  value={formData[field]}
-                  onChangeText={(text) => setFormData({ ...formData, [field]: text })}
-                  placeholderTextColor="#ccc"
-                />
-                {validationErrors[field] && <Text style={styles.errorText}>{validationErrors[field]}</Text>}
-              </View>
-            ))}
+      <SafeAreaView edges={['left', 'right']} style={styles.container}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{ flex: 1 }}
+        >
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <Image source={require('../assets/om.jpg')} style={styles.logo} />
 
-            <TextInput
-              style={[styles.input, { backgroundColor: '#f0f0f0', color: '#000' }]}
-              placeholder="Date and Time"
-              value={formData.dateTime}
-              placeholderTextColor="#ccc"
-              editable={false}
-            />
+            <View style={styles.formCard}>
+              {['name', 'tower', 'flat', 'japaName', 'japaCount'].map((field, index) => (
+                <View key={index} style={styles.inputGroup}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder={field === 'japaCount' ? 'Japa Count' : field.charAt(0).toUpperCase() + field.slice(1)}
+                    keyboardType={field === 'japaCount' ? 'numeric' : 'default'}
+                    value={formData[field]}
+                    onChangeText={(text) => setFormData({ ...formData, [field]: text })}
+                    placeholderTextColor="#aaa"
+                  />
+                  {validationErrors[field] && (
+                    <Text style={styles.errorText}>{validationErrors[field]}</Text>
+                  )}
+                </View>
+              ))}
 
-            {validationErrors.general && (
-              <Text style={[styles.errorText, { textAlign: 'center', marginTop: 10 }]}>
-                {validationErrors.general}
-              </Text>
-            )}
+              <TextInput
+                style={[styles.input, { backgroundColor: '#f0f0f0', color: '#000' }]}
+                value={formData.dateTime}
+                editable={false}
+              />
 
-            <TouchableOpacity onPress={handleSubmit} style={styles.submitButton} disabled={loading}>
-              {loading ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text style={styles.submitButtonText}>Submit</Text>
+              {validationErrors.general && (
+                <Text style={[styles.errorText, { textAlign: 'center', marginTop: 10 }]}>
+                  {validationErrors.general}
+                </Text>
               )}
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
+
+              <TouchableOpacity
+                onPress={handleSubmit}
+                style={styles.submitButton}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.submitButtonText}>Submit</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
 
+      {/* Fixed footer outside scroll */}
       <Footer onHistoryPress={goToHistory} onRequestPress={goToRequest} />
     </>
   );
@@ -218,7 +240,7 @@ useEffect(() => {
 
 export default Home;
 
-// Styles
+
 const styles = StyleSheet.create({
   headerGradient: {
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
@@ -237,11 +259,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 10,
   },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '500',
-    color: '#fff',
-  },
+    nameWrapper: {
+      flex: 1,
+      marginRight: 10,
+      overflow: 'hidden',
+    },
+
+    headerTitle: {
+      fontSize: 21,
+      fontWeight: '500',
+      color: '#fff',
+      overflow: 'hidden',
+    },
+
   iconContainer: {
     flexDirection: 'row',
   },
@@ -251,8 +281,9 @@ const styles = StyleSheet.create({
     marginLeft: 20,
     tintColor: '#fff',
   },
-  formContainer: {
+  scrollContent: {
     padding: 24,
+    paddingBottom: 140, // space for footer
   },
   logo: {
     width: 120,
@@ -281,24 +312,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     fontSize: 17,
     backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
     elevation: 2,
   },
   submitButton: {
     backgroundColor: '#FF7E5F',
     borderRadius: 14,
     marginTop: 24,
-    elevation: 5,
     alignSelf: 'center',
     paddingVertical: 12,
     paddingHorizontal: 24,
-    shadowColor: '#FF7E5F',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
+    elevation: 5,
   },
   submitButtonText: {
     color: '#fff',

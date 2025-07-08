@@ -23,30 +23,33 @@ const Login = () => {
   const [input, setInput] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+
   const [customAlert, setCustomAlert] = useState({
     visible: false,
     title: '',
     message: '',
   });
-
   const isPhone = /^[0-9]*$/.test(input);
-
   useEffect(() => {
-    const checkLogin = async () => {
-      const user = await AsyncStorage.getItem('user');
-      if (user) {
-        const { name, id } = JSON.parse(user);
-        navigation.replace('Home', { name, id }); // Skip login screen
-      }
-    };
-
-    checkLogin();
-
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 1000,
       useNativeDriver: true,
     }).start();
+
+    const checkLogin = async () => {
+      try {
+        const userData = await AsyncStorage.getItem('user');
+        if (userData) {
+          const { name, id } = JSON.parse(userData);
+          navigation.replace('Home', { name, id });
+        }
+      } catch (err) {
+        console.log('Auto-login error:', err);
+      }
+    };
+
+    checkLogin();
   }, []);
 
   const showAlert = (title, message) => {
@@ -55,7 +58,7 @@ const Login = () => {
 
   const handleLogin = async () => {
     if (!input || !password) {
-      showAlert('Input Error', 'Please enter all fields.');
+      showAlert('Input Error', 'Give Proper Inputs.');
       return;
     }
 
@@ -74,17 +77,17 @@ const Login = () => {
         const { name, _id } = data;
 
         if (!name || !_id) {
-          showAlert('Error', 'Incomplete user data received.');
+          showAlert('Data Error', 'Incomplete user data received.');
+          setLoading(false);
           return;
         }
-
         await AsyncStorage.setItem('user', JSON.stringify({ name, id: _id }));
         navigation.replace('Home', { name, id: _id });
       } else {
         showAlert('Login Failed', data.error || 'Invalid credentials.');
       }
     } catch (error) {
-      showAlert('Network Error', 'Unable to reach the server.');
+      showAlert('Network Error', 'Could not connect to the server.');
     } finally {
       setLoading(false);
     }
@@ -96,32 +99,33 @@ const Login = () => {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.innerContainer}
       >
-        <Image
-          source={require('../assets/result.png')}
-          style={styles.logo}
-        />
+      <View style={styles.logoWrapper}>
+          <Image
+            source={require('../assets/result.png')} // Replace with your actual image path
+            style={styles.logo}
+          />
+        </View>
 
         <Animated.View style={[styles.formContainer, { opacity: fadeAnim }]}>
-          <Text style={styles.title}>Your Japa Journey</Text>
-
+          <Text style={styles.title}>Namma Ganesha Japa</Text>
           <TextInput
             style={styles.input}
             placeholder="Email or Phone"
             value={input}
             onChangeText={setInput}
             placeholderTextColor="#555"
-            keyboardType={isPhone ? 'phone-pad' : 'email-address'}
-            maxLength={isPhone ? 10 : undefined}
+            maxLength={/^\d+$/.test(input) ? 10 : undefined}
           />
-
           <TextInput
             style={[styles.input, styles.passwordInput]}
-            placeholder="Enter 4 digit PIN"
+            placeholder="Enter 4 digit pin"
             value={password}
             onChangeText={setPassword}
             placeholderTextColor="#555"
             secureTextEntry
             keyboardType="numeric"
+            autoCapitalize="none"
+            autoCorrect={false}
             maxLength={4}
           />
 
@@ -142,6 +146,7 @@ const Login = () => {
           </TouchableOpacity>
         </Animated.View>
 
+        {/* Custom Modal Alert */}
         <Modal transparent visible={customAlert.visible} animationType="fade">
           <View style={styles.alertOverlay}>
             <View style={styles.alertBox}>
@@ -149,9 +154,7 @@ const Login = () => {
               <Text style={styles.alertMessage}>{customAlert.message}</Text>
               <TouchableOpacity
                 style={styles.alertButton}
-                onPress={() =>
-                  setCustomAlert({ visible: false, title: '', message: '' })
-                }
+                onPress={() => setCustomAlert({ visible: false, title: '', message: '' })}
               >
                 <Text style={styles.alertButtonText}>OK</Text>
               </TouchableOpacity>
@@ -166,19 +169,31 @@ const Login = () => {
 export default Login;
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: {
+    flex: 1,
+  },
   innerContainer: {
     flex: 1,
     justifyContent: 'center',
     paddingHorizontal: 30,
   },
-  logo: {
-    width: 120,
-    height: 120,
-    resizeMode: 'contain',
-    alignSelf: 'center',
-    marginBottom: 20,
-  },
+logoWrapper: {
+  marginTop: 16, // approx. 1rem
+  marginBottom: 32, // approx. 2rem
+  alignSelf: 'center',
+},
+
+logo: {
+  width: 120,
+  height: 120,
+  borderRadius: 60, // Circular shape
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 0 },
+  shadowOpacity: 0.2,
+  shadowRadius: 10,
+  elevation: 5, // Android shadow
+},
+
   formContainer: {
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     padding: 25,
@@ -202,6 +217,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   passwordInput: {
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif',
     color: '#000',
   },
   button: {
@@ -225,6 +241,8 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
     fontSize: 14,
   },
+
+  // Modal alert styles
   alertOverlay: {
     position: 'absolute',
     top: 0,

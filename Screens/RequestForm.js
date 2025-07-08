@@ -11,6 +11,9 @@ import {
   Alert,
   StatusBar,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
@@ -33,43 +36,35 @@ const RequestForm = ({ navigation }) => {
   useEffect(() => {
     const loadUserId = async () => {
       try {
-        // TEMPORARY: Set a static ID if none is found
         const existingId = await AsyncStorage.getItem('id');
         if (existingId) {
           setId(existingId);
-          console.log('User ID:', existingId);
         } else {
           const fallbackId = '6852c511d871767a79268dcb';
           await AsyncStorage.setItem('id', fallbackId);
           setId(fallbackId);
-          console.warn('No ID found. Setting fallback ID.');
         }
       } catch (error) {
         console.error('Error accessing AsyncStorage:', error);
       }
     };
-
     loadUserId();
   }, []);
 
-const handleChange = (field, value) => {
-  if (field === 'date') {
-    // Remove non-digit characters
-    const cleaned = value.replace(/\D/g, '');
-    let formatted = cleaned;
-
-    if (cleaned.length > 2 && cleaned.length <= 4) {
-      formatted = `${cleaned.slice(0, 2)}-${cleaned.slice(2)}`;
-    } else if (cleaned.length > 4) {
-      formatted = `${cleaned.slice(0, 2)}-${cleaned.slice(2, 4)}-${cleaned.slice(4, 8)}`;
+  const handleChange = (field, value) => {
+    if (field === 'date') {
+      const cleaned = value.replace(/\D/g, '');
+      let formatted = cleaned;
+      if (cleaned.length > 2 && cleaned.length <= 4) {
+        formatted = `${cleaned.slice(0, 2)}-${cleaned.slice(2)}`;
+      } else if (cleaned.length > 4) {
+        formatted = `${cleaned.slice(0, 2)}-${cleaned.slice(2, 4)}-${cleaned.slice(4, 8)}`;
+      }
+      setFormData({ ...formData, [field]: formatted });
+    } else {
+      setFormData({ ...formData, [field]: value });
     }
-
-    setFormData({ ...formData, [field]: formatted });
-  } else {
-    setFormData({ ...formData, [field]: value });
-  }
-};
-
+  };
 
   const handleSubmit = async () => {
     const { name, phone, tower, flat, pooja, date } = formData;
@@ -105,9 +100,7 @@ const handleChange = (field, value) => {
     try {
       const response = await fetch('https://japa-lfgw.onrender.com/request', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
@@ -128,7 +121,6 @@ const handleChange = (field, value) => {
         Alert.alert('Error', data?.message || 'Submission failed.');
       }
     } catch (error) {
-      console.log('Network error:', error);
       setLoading(false);
       Alert.alert('Network Error', 'Unable to submit the request. Please try again.');
     }
@@ -150,56 +142,63 @@ const handleChange = (field, value) => {
       </LinearGradient>
 
       <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
-        <ScrollView contentContainerStyle={styles.formContainer}>
-          {['name', 'phone', 'tower', 'flat'].map((field, index) => (
-            <View key={index} style={styles.inputGroup}>
-              <TextInput
-                style={styles.input}
-                placeholder={field === 'phone' ? 'Phone Number' : field.charAt(0).toUpperCase() + field.slice(1)}
-                value={formData[field]}
-                keyboardType={field === 'phone' ? 'phone-pad' : 'default'}
-                onChangeText={(text) => handleChange(field, text)}
-                placeholderTextColor="#aaa"
-                maxLength={field === 'phone' ? 10 : undefined}
-              />
-              {errors[field] && <Text style={styles.errorText}>{errors[field]}</Text>}
-            </View>
-          ))}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+        >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <ScrollView contentContainerStyle={styles.formContainer} keyboardShouldPersistTaps="handled">
+              {['name', 'phone', 'tower', 'flat'].map((field, index) => (
+                <View key={index} style={styles.inputGroup}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder={field === 'phone' ? 'Phone Number' : field.charAt(0).toUpperCase() + field.slice(1)}
+                    value={formData[field]}
+                    keyboardType={field === 'phone' ? 'phone-pad' : 'default'}
+                    onChangeText={(text) => handleChange(field, text)}
+                    placeholderTextColor="#aaa"
+                    maxLength={field === 'phone' ? 10 : undefined}
+                  />
+                  {errors[field] && <Text style={styles.errorText}>{errors[field]}</Text>}
+                </View>
+              ))}
 
-          <View style={styles.inputGroup}>
-            <TextInput
-              style={styles.textArea}
-              placeholder="Pooja Details"
-              value={formData.pooja}
-              onChangeText={(text) => handleChange('pooja', text)}
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-              placeholderTextColor="#aaa"
-            />
-            {errors.pooja && <Text style={styles.errorText}>{errors.pooja}</Text>}
-          </View>
+              <View style={styles.inputGroup}>
+                <TextInput
+                  style={styles.textArea}
+                  placeholder="Pooja Details"
+                  value={formData.pooja}
+                  onChangeText={(text) => handleChange('pooja', text)}
+                  multiline
+                  numberOfLines={4}
+                  textAlignVertical="top"
+                  placeholderTextColor="#aaa"
+                />
+                {errors.pooja && <Text style={styles.errorText}>{errors.pooja}</Text>}
+              </View>
 
-          <View style={styles.inputGroup}>
-            <TextInput
-              style={styles.input}
-              placeholder="Date (DD-MM-YYYY)"
-              value={formData.date}
-              onChangeText={(text) => handleChange('date', text)}
-              keyboardType="numeric"
-              placeholderTextColor="#aaa"
-            />
-            {errors.date && <Text style={styles.errorText}>{errors.date}</Text>}
-          </View>
+              <View style={styles.inputGroup}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Date (DD-MM-YYYY)"
+                  value={formData.date}
+                  onChangeText={(text) => handleChange('date', text)}
+                  keyboardType="numeric"
+                  placeholderTextColor="#aaa"
+                />
+                {errors.date && <Text style={styles.errorText}>{errors.date}</Text>}
+              </View>
 
-          {loading ? (
-            <ActivityIndicator size="large" color="#FF7E5F" style={{ marginTop: 20 }} />
-          ) : (
-            <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-              <Text style={styles.submitButtonText}>Submit Request</Text>
-            </TouchableOpacity>
-          )}
-        </ScrollView>
+              {loading ? (
+                <ActivityIndicator size="large" color="#FF7E5F" style={{ marginTop: 20 }} />
+              ) : (
+                <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
+                  <Text style={styles.submitButtonText}>Submit Request</Text>
+                </TouchableOpacity>
+              )}
+            </ScrollView>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </>
   );
@@ -238,6 +237,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffeede',
   },
   formContainer: {
+    flexGrow: 1,
     padding: 24,
   },
   inputGroup: {
