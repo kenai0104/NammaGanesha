@@ -32,24 +32,35 @@ const RequestForm = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
   const [id, setId] = useState('');
   const [errors, setErrors] = useState({});
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  useEffect(() => {
-    const loadUserId = async () => {
-      try {
-        const existingId = await AsyncStorage.getItem('id');
-        if (existingId) {
-          setId(existingId);
-        } else {
-          const fallbackId = '6852c511d871767a79268dcb';
-          await AsyncStorage.setItem('id', fallbackId);
-          setId(fallbackId);
-        }
-      } catch (error) {
-        console.error('Error accessing AsyncStorage:', error);
+
+useEffect(() => {
+  const loadUser = async () => {
+    try {
+      const storedUser = await AsyncStorage.getItem('user');
+      const parsedUser = storedUser ? JSON.parse(storedUser) : null;
+
+      if (parsedUser?.id) {
+        setIsLoggedIn(true);
+        setId(parsedUser.id);
+        setFormData((prev) => ({
+          ...prev,
+          phone: parsedUser.phone || '',
+        }));
+      } else {
+        setIsLoggedIn(false);
       }
-    };
-    loadUserId();
-  }, []);
+    } catch (error) {
+      console.error('AsyncStorage error:', error);
+      Alert.alert('Storage Error', 'Failed to load user data.');
+    }
+  };
+
+  loadUser();
+}, []);
+
+
 
   const handleChange = (field, value) => {
     if (field === 'date') {
@@ -66,65 +77,111 @@ const RequestForm = ({ navigation }) => {
     }
   };
 
-  const handleSubmit = async () => {
-    const { name, phone, tower, flat, pooja, date } = formData;
+const handleSubmit = async () => {
+  try {
+    const storedUser = await AsyncStorage.getItem('user');
+
+    // Robust check for login presence
+    if (!storedUser || storedUser === 'null' || storedUser === '{}' || storedUser === 'undefined') {
+      Alert.alert(
+        'Login Required',
+        'To submit a prayer request, please log in first.',
+        [
+          { text: 'Login', onPress: () => navigation.replace('Login') },
+          { text: 'Cancel', style: 'cancel' },
+        ]
+      );
+      return;
+    }
+
+    const user = JSON.parse(storedUser);
+    const userId = user?.id;
+    const phone = user?.phone;
+
+    if (!userId || !phone) {
+      await AsyncStorage.removeItem('user');
+      Alert.alert('Invalid Session', 'Your session has expired. Please log in again.');
+      navigation.replace('Login');
+      return;
+    }
+
+    const { name, tower, flat, pooja, date } = formData;
     const newErrors = {};
 
+    // Basic validation
     if (!name.trim()) newErrors.name = 'Name is required.';
-    if (!phone.trim()) newErrors.phone = 'Phone number is required.';
-    else if (!/^\d{10}$/.test(phone)) newErrors.phone = 'Phone must be 10 digits.';
     if (!tower.trim()) newErrors.tower = 'Tower is required.';
     if (!flat.trim()) newErrors.flat = 'Flat is required.';
     if (!pooja.trim()) newErrors.pooja = 'Pooja details required.';
     if (!date.trim()) newErrors.date = 'Date is required.';
-    else if (!/^\d{2}-\d{2}-\d{4}$/.test(date)) newErrors.date = 'Format: DD-MM-YYYY.';
+    else if (!/^\d{2}-\d{2}-\d{4}$/.test(date)) newErrors.date = 'Use format: DD-MM-YYYY.';
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
     }
 
-    setErrors({});
-    setLoading(true);
+    setErrors({}); // Clear previous errors
 
-    const payload = {
-      name,
-      phone,
-      tower,
-      flat,
-      date,
-      poojaName: pooja,
-      userId: id,
-    };
+    // Confirmation alert
+    Alert.alert(
+      'Confirm Submission',
+      `Please confirm your details:\n\nName: ${name}\nPhone: ${phone}\nTower: ${tower}\nFlat: ${flat}\nPooja: ${pooja}\nDate: ${date}`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Submit',
+          onPress: async () => {
+            setLoading(true);
 
-    try {
-      const response = await fetch('https://japa-lfgw.onrender.com/request', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+            const payload = {
+              name,
+              phone,
+              tower,
+              flat,
+              date,
+              poojaName: pooja,
+              userId,
+            };
 
-      const data = await response.json();
-      setLoading(false);
+            try {
+              const response = await fetch('https://japa-meev.onrender.com/request', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+              });
 
-      if (response.ok) {
-        setFormData({
-          name: '',
-          phone: '',
-          tower: '',
-          flat: '',
-          pooja: '',
-          date: '',
-        });
-        navigation.navigate('Success');
-      } else {
-        Alert.alert('Error', data?.message || 'Submission failed.');
-      }
-    } catch (error) {
-      setLoading(false);
-      Alert.alert('Network Error', 'Unable to submit the request. Please try again.');
-    }
-  };
+              const data = await response.json();
+              setLoading(false);
+
+              if (response.ok) {
+                setFormData({
+                  name: '',
+                  tower: '',
+                  flat: '',
+                  pooja: '',
+                  date: '',
+                });
+                navigation.navigate('Success');
+              } else {
+                Alert.alert('Error', data?.message || 'Submission failed. Please try again.');
+              }
+            } catch (error) {
+              setLoading(false);
+              console.error('Submission error:', error);
+              Alert.alert('Network Error', 'Unable to reach server. Try again later.');
+            }
+          },
+        },
+      ]
+    );
+  } catch (error) {
+    setLoading(false);
+    console.error('handleSubmit error:', error);
+    Alert.alert('Error', 'Something went wrong. Please try again.');
+  }
+};
+
 
   return (
     <>
@@ -148,20 +205,20 @@ const RequestForm = ({ navigation }) => {
         >
           <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
             <ScrollView contentContainerStyle={styles.formContainer} keyboardShouldPersistTaps="handled">
-              {['name', 'phone', 'tower', 'flat'].map((field, index) => (
+              {['name', 'tower', 'flat'].map((field, index) => (
                 <View key={index} style={styles.inputGroup}>
                   <TextInput
                     style={styles.input}
-                    placeholder={field === 'phone' ? 'Phone Number' : field.charAt(0).toUpperCase() + field.slice(1)}
+                    placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
                     value={formData[field]}
-                    keyboardType={field === 'phone' ? 'phone-pad' : 'default'}
+                    keyboardType="default"
                     onChangeText={(text) => handleChange(field, text)}
                     placeholderTextColor="#aaa"
-                    maxLength={field === 'phone' ? 10 : undefined}
                   />
                   {errors[field] && <Text style={styles.errorText}>{errors[field]}</Text>}
                 </View>
               ))}
+
 
               <View style={styles.inputGroup}>
                 <TextInput

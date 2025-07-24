@@ -71,7 +71,7 @@ const Register = () => {
 
     try {
       const bodyData = { name, email, phone, password };
-      const response = await fetch('https://japa-lfgw.onrender.com/register', {
+      const response = await fetch('https://japa-meev.onrender.com/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(bodyData),
@@ -136,7 +136,9 @@ const Register = () => {
             placeholderTextColor="#555"
             maxLength={10}
           />
-
+          <Text style={styles.infoText}>
+            * Your phone number is used only for secure login and identity verification.
+          </Text>
           <TextInput
             style={[styles.input, styles.passwordInput]}
             placeholder="Enter 4 digit Pin"
@@ -273,6 +275,15 @@ logo: {
     marginTop: 20,
     alignItems: 'center',
   },
+infoText: {
+  fontSize: 12,
+  color: '#444',
+  marginTop: 4,
+  marginLeft: 4,
+  fontStyle: 'italic',
+  fontWeight: '500',
+  marginBottom: 10, 
+},
   loginRedirectText: {
     color: '#555',
     fontSize: 14,

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { StyleSheet, Animated, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import LinearGradient from 'react-native-linear-gradient'; // Import the LinearGradient component
+import LinearGradient from 'react-native-linear-gradient'; 
 
 const Splash = () => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -21,18 +21,18 @@ const Splash = () => {
         useNativeDriver: true,
       }),
     ]).start(() => {
-      navigation.replace('Login');
+      navigation.replace('Home');
     });
   }, []);
 
   return (
     <LinearGradient
-      colors={['#FF7E5F', '#FEB47B']} // Gradient colors (pink to yellow)
-      style={styles.container} // Gradient applied to container style
+      colors={['#FF7E5F', '#FEB47B']} 
+      style={styles.container} 
     >
       <Animated.Image
-        source={require('../assets/chanting.png')} // Your logo
-        style={[styles.logo, { opacity: fadeAnim }]} // Apply fade animation to the logo
+        source={require('../assets/chanting.png')}
+        style={[styles.logo, { opacity: fadeAnim }]} 
         resizeMode="contain"
       />
     </LinearGradient>

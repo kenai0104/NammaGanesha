@@ -56,42 +56,71 @@ const Login = () => {
     setCustomAlert({ visible: true, title, message });
   };
 
-  const handleLogin = async () => {
-    if (!input || !password) {
-      showAlert('Input Error', 'Give Proper Inputs.');
+const handleLogin = async () => {
+  console.log('[Login Attempt]');
+  console.log('Input:', input);
+  console.log('Password:', password);
+
+  if (!input || !password) {
+    console.warn('⚠ Empty input or password');
+    showAlert('Input Error', 'Give Proper Inputs.');
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    const response = await fetch('https://japa-meev.onrender.com/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ input, password }),
+    });
+
+    const responseText = await response.text();
+    console.log('[Server Raw Response]:', responseText);
+
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (err) {
+      console.error('❌ JSON Parse Error:', err);
+      showAlert('Error', 'Invalid response from server.');
+      setLoading(false);
       return;
     }
 
-    setLoading(true);
+    if (response.ok) {
+      const { name, _id, phone, email } = data;
 
-    try {
-      const response = await fetch('https://japa-lfgw.onrender.com/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input, password }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        const { name, _id } = data;
-
-        if (!name || !_id) {
-          showAlert('Data Error', 'Incomplete user data received.');
-          setLoading(false);
-          return;
-        }
-        await AsyncStorage.setItem('user', JSON.stringify({ name, id: _id }));
-        navigation.replace('Home', { name, id: _id });
-      } else {
-        showAlert('Login Failed', data.error || 'Invalid credentials.');
+      if (!name || !_id) {
+        console.warn('⚠ Incomplete data from server:', data);
+        showAlert('Data Error', 'Incomplete user data received.');
+        setLoading(false);
+        return;
       }
-    } catch (error) {
-      showAlert('Network Error', 'Could not connect to the server.');
-    } finally {
-      setLoading(false);
+
+      const userData = { name, id: _id, phone, email };
+
+      await AsyncStorage.setItem('user', JSON.stringify(userData));
+      console.log('✅ Saved to AsyncStorage:', userData);
+
+      showAlert('User Saved', `Name: ${name}\nPhone: ${phone}\nEmail: ${email}`);
+
+      navigation.replace('Home', { name, id: _id });
+    } else {
+      console.warn('❌ Login Failed:', data?.error || responseText);
+      showAlert('Login Failed', data?.error || 'Invalid credentials.');
     }
-  };
+  } catch (error) {
+    console.error('❌ Network or Code Error:', error);
+    showAlert('Network Error', 'Could not connect to the server.');
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+
 
   return (
     <LinearGradient colors={['#FF7E5F', '#FEB47B']} style={styles.container}>

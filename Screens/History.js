@@ -37,7 +37,7 @@ const History = ({ navigation, route }) => {
   useEffect(() => {
     const fetchHistory = async () => {
       try {
-        const response = await fetch(`https://japa-lfgw.onrender.com/posts/${id}`);
+        const response = await fetch(`https://japa-meev.onrender.com/posts/${id}`);
         const data = await response.json();
 
         if (response.ok) {

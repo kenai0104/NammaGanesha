@@ -2,7 +2,7 @@ import React from 'react';
 import { View, TouchableOpacity, Image, Text, StyleSheet } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 
-const Footer = ({ onHistoryPress, onRequestPress }) => {
+const Footer = ({ onHistoryPress, onRequestPress, onProfilePress }) => {
   return (
     <LinearGradient colors={['#FF7E5F', '#FEB47B']} style={styles.footer}>
       <TouchableOpacity style={styles.footerIconWrapper} onPress={onHistoryPress}>
@@ -13,6 +13,11 @@ const Footer = ({ onHistoryPress, onRequestPress }) => {
       <TouchableOpacity style={styles.footerIconWrapper} onPress={onRequestPress}>
         <Image source={require('../assets/interview.png')} style={styles.footerIcon} />
         <Text style={styles.footerLabel}>Request</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.footerIconWrapper} onPress={onProfilePress}>
+        <Image source={require('../assets/profile.png')} style={styles.footerIcon} />
+        <Text style={styles.footerLabel}>Profile</Text>
       </TouchableOpacity>
     </LinearGradient>
   );
@@ -26,7 +31,6 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     borderTopWidth: 0.3,
     borderTopColor: '#eee',
-    // Don't add backgroundColor here to allow gradient to work
   },
   footerIconWrapper: {
     alignItems: 'center',
@@ -34,7 +38,7 @@ const styles = StyleSheet.create({
   footerIcon: {
     width: 26,
     height: 26,
-    tintColor: '#fff', // Match with gradient text
+    tintColor: '#fff',
   },
   footerLabel: {
     fontSize: 12,

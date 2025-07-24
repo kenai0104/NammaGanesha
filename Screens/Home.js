@@ -60,31 +60,45 @@ useEffect(() => {
 }, []);
 
 
-const handleLogout = () => {
-  Alert.alert(
-    "Confirm Logout",
-    "Are you sure you want to exit the app?",
-    [
-      {
-        text: "Cancel",
-        onPress: () => {},
-        style: "cancel",
-      },
-      {
-        text: "Yes",
-        onPress: async () => {
-          await AsyncStorage.removeItem('user');
-          navigation.replace('Login');
-        },
-        style: "destructive",
-      },
-    ],
-    { cancelable: true }
-  );
-};
 
 
-  const handleSubmit = async () => {
+const handleSubmit = async () => {
+  try {
+    const storedUser = await AsyncStorage.getItem('user');
+
+    if (!storedUser) {
+      Alert.alert(
+        "Not Logged In",
+        "Please log in or register to submit your Japa record.",
+        [
+          {
+            text: "Login",
+            onPress: () => navigation.replace('Login'),
+          },
+          {
+            text: "Register",
+            onPress: () => navigation.replace('Register'),
+          },
+          {
+            text: "Cancel",
+            style: "cancel",
+          }
+        ]
+      );
+      return;
+    }
+
+    const user = JSON.parse(storedUser);
+    if (!user.id || !user.name) {
+      Alert.alert("Error", "Invalid user data. Please login again.");
+      await AsyncStorage.removeItem('user');
+      navigation.replace('Login');
+      return;
+    }
+
+    setId(user.id);
+    setName(user.name);
+
     const { name, tower, flat, japaName, japaCount } = formData;
     const newErrors = {};
 
@@ -97,8 +111,6 @@ const handleLogout = () => {
     } else if (isNaN(japaCount) || parseInt(japaCount) <= 0) {
       newErrors.japaCount = 'Must be a positive number.';
     }
-
-    if (!id) newErrors.general = 'User ID missing. Please log in again.';
 
     if (Object.keys(newErrors).length > 0) {
       setValidationErrors(newErrors);
@@ -114,41 +126,141 @@ const handleLogout = () => {
       date: isoDate,
       japaName,
       japaCount: parseInt(japaCount, 10),
-      userId: id,
+      userId: user.id,
     };
 
-    try {
-      setLoading(true);
-      const response = await fetch('https://japa-lfgw.onrender.com/posts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+    setLoading(true);
+    const response = await fetch('https://japa-meev.onrender.com/posts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await response.json();
+    setLoading(false);
+
+    if (response.ok) {
+      setFormData({
+        name,
+        tower: '',
+        flat: '',
+        japaName: '',
+        japaCount: '',
+        dateTime: new Date().toLocaleString(),
       });
-
-      const data = await response.json();
-      setLoading(false);
-
-      if (response.ok) {
-        setFormData({
-          name,
-          tower: '',
-          flat: '',
-          japaName: '',
-          japaCount: '',
-          dateTime: new Date().toLocaleString(),
-        });
-        navigation.navigate('History', { id });
-      } else {
-        setValidationErrors({ general: data.message || 'Submission failed' });
-      }
-    } catch (error) {
-      setLoading(false);
-      setValidationErrors({ general: 'Server error. Try again later.' });
+      navigation.navigate('History', { id: user.id });
+    } else {
+      setValidationErrors({ general: data.message || 'Submission failed' });
     }
-  };
+  } catch (error) {
+    setLoading(false);
+    setValidationErrors({ general: 'Server error. Try again later.' });
+  }
+};
 
-  const goToRequest = () => navigation.navigate('RequestForm', { id });
-  const goToHistory = () => navigation.navigate('History', { id });
+
+
+  // const handleSubmit = async () => {
+  //   const { name, tower, flat, japaName, japaCount } = formData;
+  //   const newErrors = {};
+
+  //   if (!name.trim()) newErrors.name = 'Name is required.';
+  //   if (!tower.trim()) newErrors.tower = 'Tower is required.';
+  //   if (!flat.trim()) newErrors.flat = 'Flat is required.';
+  //   if (!japaName.trim()) newErrors.japaName = 'Japa Name is required.';
+  //   if (!japaCount.trim()) {
+  //     newErrors.japaCount = 'Japa Count is required.';
+  //   } else if (isNaN(japaCount) || parseInt(japaCount) <= 0) {
+  //     newErrors.japaCount = 'Must be a positive number.';
+  //   }
+
+  //   if (!id) newErrors.general = 'User ID missing. Please log in again.';
+
+  //   if (Object.keys(newErrors).length > 0) {
+  //     setValidationErrors(newErrors);
+  //     return;
+  //   }
+
+  //   setValidationErrors({});
+  //   const isoDate = new Date().toISOString();
+  //   const payload = {
+  //     name,
+  //     tower,
+  //     flat,
+  //     date: isoDate,
+  //     japaName,
+  //     japaCount: parseInt(japaCount, 10),
+  //     userId: id,
+  //   };
+
+  //   try {
+  //     setLoading(true);
+  //     const response = await fetch('https://japa-lfgw.onrender.com/posts', {
+  //       method: 'POST',
+  //       headers: { 'Content-Type': 'application/json' },
+  //       body: JSON.stringify(payload),
+  //     });
+
+  //     const data = await response.json();
+  //     setLoading(false);
+
+  //     if (response.ok) {
+  //       setFormData({
+  //         name,
+  //         tower: '',
+  //         flat: '',
+  //         japaName: '',
+  //         japaCount: '',
+  //         dateTime: new Date().toLocaleString(),
+  //       });
+  //       navigation.navigate('History', { id });
+  //     } else {
+  //       setValidationErrors({ general: data.message || 'Submission failed' });
+  //     }
+  //   } catch (error) {
+  //     setLoading(false);
+  //     setValidationErrors({ general: 'Server error. Try again later.' });
+  //   }
+  // };
+
+const goToRequest = () => navigation.navigate('RequestForm', { id });
+
+const goToProfile = async() => {
+    const storedUser = await AsyncStorage.getItem('user');
+  if (storedUser) {
+    const user = JSON.parse(storedUser);
+    navigation.navigate('Profile', { id: user.id });
+  } else {
+    Alert.alert(
+      "Login Required",
+      "Please log in to view your Profile",
+      [
+        { text: "Login", onPress: () => navigation.replace('Login') },
+        { text: "Cancel", style: "cancel" }
+      ]
+    );
+  }
+};
+
+
+
+const goToHistory = async () => {
+  const storedUser = await AsyncStorage.getItem('user');
+  if (storedUser) {
+    const user = JSON.parse(storedUser);
+    navigation.navigate('History', { id: user.id });
+  } else {
+    Alert.alert(
+      "Login Required",
+      "Please log in to view your Japa history.",
+      [
+        { text: "Login", onPress: () => navigation.replace('Login') },
+        { text: "Cancel", style: "cancel" }
+      ]
+    );
+  }
+};
+
 
   return (
     <>
@@ -165,11 +277,29 @@ const handleLogout = () => {
                 Hi {nameA}
               </Text>
             </View>
-            <View style={styles.iconContainer}>
-              <TouchableOpacity onPress={handleLogout}>
-                <Image source={require('../assets/power-off.png')} style={styles.headerIcon} />
-              </TouchableOpacity>
-            </View>
+         <View style={styles.iconContainer}>
+  {id ? (
+    <TouchableOpacity
+      onPress={() => {
+        Alert.alert('Logout', 'Are you sure you want to log out?', [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Logout',
+            style: 'destructive',
+            onPress: async () => {
+              await AsyncStorage.removeItem('user');
+              navigation.replace('Login');
+            },
+          },
+        ]);
+      }}
+    >
+      <Image source={require('../assets/power-off.png')} style={styles.headerIcon} />
+    </TouchableOpacity>
+  ) : null}
+</View>
+
+
           </View>
 
         </SafeAreaView>
@@ -186,6 +316,16 @@ const handleLogout = () => {
             showsVerticalScrollIndicator={false}
           >
             <Image source={require('../assets/om.jpg')} style={styles.logo} />
+
+            <Text style={{ 
+              textAlign: 'center', 
+              marginBottom: 30, 
+              color: 'brown' 
+            }}>
+            Namma Ganesha supports your daily Japa practice and enables you to submit devotional prayer requests with ease.
+            </Text>
+
+
 
             <View style={styles.formCard}>
               {['name', 'tower', 'flat', 'japaName', 'japaCount'].map((field, index) => (
@@ -232,8 +372,7 @@ const handleLogout = () => {
         </KeyboardAvoidingView>
       </SafeAreaView>
 
-      {/* Fixed footer outside scroll */}
-      <Footer onHistoryPress={goToHistory} onRequestPress={goToRequest} />
+      <Footer onHistoryPress={goToHistory} onRequestPress={goToRequest} onProfilePress={goToProfile} />
     </>
   );
 };
@@ -283,7 +422,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 24,
-    paddingBottom: 140, // space for footer
+    paddingBottom: 140, 
   },
   logo: {
     width: 120,
