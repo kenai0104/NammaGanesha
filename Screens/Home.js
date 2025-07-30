@@ -20,18 +20,36 @@ import Footer from './Footer';
 
 const Home = ({ navigation }) => {
   const [formData, setFormData] = useState({
-    name: '',
-    tower: '',
-    flat: '',
-    japaName: '',
-    japaCount: '',
-    dateTime: '',
-  });
+  name: '',
+  tower: '',
+  flat: '',
+  japaName: '',
+  japaCount: '',
+  date: '',  // manual date input
+});
+
 
   const [loading, setLoading] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
   const [nameA, setName] = useState('');
   const [id, setId] = useState('');
+
+  const formatDateInput = (text) => {
+  // Remove non-numeric characters
+  const cleaned = text.replace(/\D/g, '');
+
+  let formatted = '';
+  if (cleaned.length <= 2) {
+    formatted = cleaned;
+  } else if (cleaned.length <= 4) {
+    formatted = `${cleaned.slice(0, 2)}-${cleaned.slice(2)}`;
+  } else {
+    formatted = `${cleaned.slice(0, 2)}-${cleaned.slice(2, 4)}-${cleaned.slice(4, 8)}`;
+  }
+
+  return formatted;
+};
+
 
 useEffect(() => {
   const loadUser = async () => {
@@ -48,19 +66,7 @@ useEffect(() => {
   };
 
   loadUser();
-
-  const interval = setInterval(() => {
-    setFormData((prevData) => ({
-      ...prevData,
-      dateTime: new Date().toLocaleString(),
-    }));
-  }, 1000);
-
-  return () => clearInterval(interval);
 }, []);
-
-
-
 
 const handleSubmit = async () => {
   try {
@@ -71,18 +77,9 @@ const handleSubmit = async () => {
         "Not Logged In",
         "Please log in or register to submit your Japa record.",
         [
-          {
-            text: "Login",
-            onPress: () => navigation.replace('Login'),
-          },
-          {
-            text: "Register",
-            onPress: () => navigation.replace('Register'),
-          },
-          {
-            text: "Cancel",
-            style: "cancel",
-          }
+          { text: "Login", onPress: () => navigation.replace('Login') },
+          { text: "Register", onPress: () => navigation.replace('Register') },
+          { text: "Cancel", style: "cancel" }
         ]
       );
       return;
@@ -99,7 +96,7 @@ const handleSubmit = async () => {
     setId(user.id);
     setName(user.name);
 
-    const { name, tower, flat, japaName, japaCount } = formData;
+    const { name, tower, flat, japaName, japaCount, date } = formData;
     const newErrors = {};
 
     if (!name.trim()) newErrors.name = 'Name is required.';
@@ -112,18 +109,29 @@ const handleSubmit = async () => {
       newErrors.japaCount = 'Must be a positive number.';
     }
 
+    // Validate and reformat the date
+    const dateRegex = /^\d{2}-\d{2}-\d{4}$/;
+    if (!date.trim()) {
+      newErrors.date = 'Date is required.';
+    } else if (!dateRegex.test(date)) {
+      newErrors.date = 'Date must be in DD-MM-YYYY format.';
+    }
+
     if (Object.keys(newErrors).length > 0) {
       setValidationErrors(newErrors);
       return;
     }
 
+    // Convert date from DD-MM-YYYY to YYYY-MM-DD
+    const [day, month, year] = date.split('-');
+    const isoFormattedDate = `${year}-${month}-${day}`;
+
     setValidationErrors({});
-    const isoDate = new Date().toISOString();
     const payload = {
       name,
       tower,
       flat,
-      date: isoDate,
+      date: isoFormattedDate,
       japaName,
       japaCount: parseInt(japaCount, 10),
       userId: user.id,
@@ -146,7 +154,7 @@ const handleSubmit = async () => {
         flat: '',
         japaName: '',
         japaCount: '',
-        dateTime: new Date().toLocaleString(),
+        date: '',
       });
       navigation.navigate('History', { id: user.id });
     } else {
@@ -158,70 +166,6 @@ const handleSubmit = async () => {
   }
 };
 
-
-
-  // const handleSubmit = async () => {
-  //   const { name, tower, flat, japaName, japaCount } = formData;
-  //   const newErrors = {};
-
-  //   if (!name.trim()) newErrors.name = 'Name is required.';
-  //   if (!tower.trim()) newErrors.tower = 'Tower is required.';
-  //   if (!flat.trim()) newErrors.flat = 'Flat is required.';
-  //   if (!japaName.trim()) newErrors.japaName = 'Japa Name is required.';
-  //   if (!japaCount.trim()) {
-  //     newErrors.japaCount = 'Japa Count is required.';
-  //   } else if (isNaN(japaCount) || parseInt(japaCount) <= 0) {
-  //     newErrors.japaCount = 'Must be a positive number.';
-  //   }
-
-  //   if (!id) newErrors.general = 'User ID missing. Please log in again.';
-
-  //   if (Object.keys(newErrors).length > 0) {
-  //     setValidationErrors(newErrors);
-  //     return;
-  //   }
-
-  //   setValidationErrors({});
-  //   const isoDate = new Date().toISOString();
-  //   const payload = {
-  //     name,
-  //     tower,
-  //     flat,
-  //     date: isoDate,
-  //     japaName,
-  //     japaCount: parseInt(japaCount, 10),
-  //     userId: id,
-  //   };
-
-  //   try {
-  //     setLoading(true);
-  //     const response = await fetch('https://japa-lfgw.onrender.com/posts', {
-  //       method: 'POST',
-  //       headers: { 'Content-Type': 'application/json' },
-  //       body: JSON.stringify(payload),
-  //     });
-
-  //     const data = await response.json();
-  //     setLoading(false);
-
-  //     if (response.ok) {
-  //       setFormData({
-  //         name,
-  //         tower: '',
-  //         flat: '',
-  //         japaName: '',
-  //         japaCount: '',
-  //         dateTime: new Date().toLocaleString(),
-  //       });
-  //       navigation.navigate('History', { id });
-  //     } else {
-  //       setValidationErrors({ general: data.message || 'Submission failed' });
-  //     }
-  //   } catch (error) {
-  //     setLoading(false);
-  //     setValidationErrors({ general: 'Server error. Try again later.' });
-  //   }
-  // };
 
 const goToRequest = () => navigation.navigate('RequestForm', { id });
 
@@ -344,11 +288,16 @@ const goToHistory = async () => {
                 </View>
               ))}
 
-              <TextInput
-                style={[styles.input, { backgroundColor: '#f0f0f0', color: '#000' }]}
-                value={formData.dateTime}
-                editable={false}
-              />
+             <TextInput
+              style={styles.input}
+              placeholder="Date (DD-MM-YYYY)"
+              value={formData.date}
+              onChangeText={(text) =>
+                setFormData({ ...formData, date: formatDateInput(text) })
+              }
+              keyboardType="numeric"
+              placeholderTextColor="#aaa"
+            />
 
               {validationErrors.general && (
                 <Text style={[styles.errorText, { textAlign: 'center', marginTop: 10 }]}>

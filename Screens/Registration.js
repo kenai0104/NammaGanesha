@@ -122,11 +122,10 @@ const Register = () => {
             style={styles.input}
             placeholder="Email"
             value={email}
-            onChangeText={setEmail}
+            onChangeText={(text) => setEmail(text.toLowerCase())}
             keyboardType="email-address"
             placeholderTextColor="#555"
           />
-
           <TextInput
             style={styles.input}
             placeholder="Phone Number"

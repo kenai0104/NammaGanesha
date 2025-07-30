@@ -14,17 +14,12 @@ import LinearGradient from 'react-native-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Helper function to format date and time
-const formatDateTime = (isoString) => {
-  const dateObj = new Date(isoString);
-  const options = {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  };
-  return dateObj.toLocaleString('en-US', options);
+const formatDateForDisplay = (isoDate) => {
+  const dateObj = new Date(isoDate);
+  const day = String(dateObj.getDate()).padStart(2, '0');
+  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const year = dateObj.getFullYear();
+  return `${day}-${month}-${year}`;
 };
 
 const History = ({ navigation, route }) => {
@@ -100,13 +95,13 @@ const History = ({ navigation, route }) => {
               historyData.map((record, index) => (
                 <View key={index} style={styles.historyCard}>
                   <Text style={styles.historyCardTitle}>Japa Record {index + 1}</Text>
-                  <Text style={styles.historyDetail}>Name: {record.name}</Text>
-                  <Text style={styles.historyDetail}>Tower: {record.tower}</Text>
-                  <Text style={styles.historyDetail}>Flat: {record.flat}</Text>
-                  <Text style={styles.historyDetail}>Japa Name: {record.japaName}</Text>
-                  <Text style={styles.historyDetail}>Japa Count: {record.japaCount}</Text>
+                  <Text style={styles.historyDetail}>Name : {record.name}</Text>
+                  <Text style={styles.historyDetail}>Tower : {record.tower}</Text>
+                  <Text style={styles.historyDetail}>Flat : {record.flat}</Text>
+                  <Text style={styles.historyDetail}>Japa Name : {record.japaName}</Text>
+                  <Text style={styles.historyDetail}>Japa Count : {record.japaCount}</Text>
                   <Text style={styles.historyDetail}>
-                    Date & Time: {formatDateTime(record.date)}
+                    Date : {formatDateForDisplay(record.date)}
                   </Text>
                 </View>
               ))
