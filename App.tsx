@@ -9,6 +9,7 @@ import History from './Screens/History';
 import RequestForm from './Screens/RequestForm';
 import Success from './Screens/Success';
 import Profile from './Screens/Profile';
+import address from './Screens/address';
 
 
 const Stack = createNativeStackNavigator();
@@ -55,6 +56,11 @@ function App(): React.JSX.Element {
         <Stack.Screen
           name="Profile"
           component={Profile}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="Address"
+          component={address}
           options={{ headerShown: false }}
         />
       </Stack.Navigator>

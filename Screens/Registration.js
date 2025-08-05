@@ -71,6 +71,8 @@ const Register = () => {
 
     try {
       const bodyData = { name, email, phone, password };
+            // const response = await fetch('https://testjapa.onrender.com/register', {
+
       const response = await fetch('https://japa-meev.onrender.com/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -82,7 +84,7 @@ const Register = () => {
       if (response.ok) {
         navigation.replace('Login');
       } else {
-        showAlert('Registration Failed', data.message || 'Something went wrong.');
+        showAlert('Registration Failed', data.error);
       }
     } catch (error) {
       showAlert('Network Error', 'Could not connect to the server. Please try again.');

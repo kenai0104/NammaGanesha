@@ -63,14 +63,17 @@ const handleLogin = async () => {
 
   if (!input || !password) {
     console.warn('⚠ Empty input or password');
-    showAlert('Input Error', 'Give Proper Inputs.');
+    showAlert('Input Error', 'Please enter both Email/Phone and Password.');
     return;
   }
 
   setLoading(true);
 
   try {
+    // Step 1: Login Request
     const response = await fetch('https://japa-meev.onrender.com/login', {
+          // const response = await fetch('https://testjapa.onrender.com/login', {
+
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ input, password }),
@@ -84,40 +87,64 @@ const handleLogin = async () => {
       data = JSON.parse(responseText);
     } catch (err) {
       console.error('❌ JSON Parse Error:', err);
-      showAlert('Error', 'Invalid response from server.');
-      setLoading(false);
+      showAlert('Error', 'Invalid response format from server.');
       return;
     }
 
-    if (response.ok) {
-      const { name, _id, phone, email } = data;
+    if (!response.ok) {
+      console.warn('❌ Login Failed:', data?.error || responseText);
+      showAlert('Login Failed', data?.error || 'Invalid credentials. Please try again.');
+      return;
+    }
 
-      if (!name || !_id) {
-        console.warn('⚠ Incomplete data from server:', data);
-        showAlert('Data Error', 'Incomplete user data received.');
-        setLoading(false);
+    // Step 2: Validate Login Response
+    const { name, _id, phone, email } = data;
+    if (!name || !_id) {
+      console.warn('⚠ Incomplete data from server:', data);
+      showAlert('Login Error', 'Incomplete user data received from server.');
+      return;
+    }
+
+    // Step 3: Store user basic info
+    const userData = { name, id: _id, phone, email };
+    await AsyncStorage.setItem('user', JSON.stringify(userData));
+    console.log('✅ Saved to AsyncStorage:', userData);
+
+    // Step 4: Fetch full user profile
+    try {
+      const profileRes = await fetch(`https://japa-meev.onrender.com/user-profile/${_id}`);
+            // const profileRes = await fetch(`https://testjapa.onrender.com/user-profile/${_id}`);
+
+      const profileData = await profileRes.json();
+
+      if (!profileRes.ok) {
+        console.warn('⚠ Failed to fetch profile:', profileData?.error);
+        showAlert('Profile Error', profileData?.error || 'Unable to fetch profile details.');
         return;
       }
 
-      const userData = { name, id: _id, phone, email };
+      const { tower, flat } = profileData;
+      if (!tower || !flat) {
+        console.log('➡ Redirecting to Address screen (missing tower/flat)');
+        navigation.replace('Address', { name, id: _id });
+      } else {
+        console.log('➡ Redirecting to Home screen');
+        navigation.replace('Home', { name, id: _id });
+      }
 
-      await AsyncStorage.setItem('user', JSON.stringify(userData));
-      console.log('✅ Saved to AsyncStorage:', userData);
-
-      showAlert('User Saved', `Name: ${name}\nPhone: ${phone}\nEmail: ${email}`);
-
-      navigation.replace('Home', { name, id: _id });
-    } else {
-      console.warn('❌ Login Failed:', data?.error || responseText);
-      showAlert('Login Failed', data?.error || 'Invalid credentials.');
+    } catch (profileErr) {
+      console.error('❌ Error fetching user profile:', profileErr);
+      showAlert('Network Error', 'Could not load profile. Please check your connection.');
     }
-  } catch (error) {
-    console.error('❌ Network or Code Error:', error);
-    showAlert('Network Error', 'Could not connect to the server.');
+
+  } catch (loginErr) {
+    console.error('❌ Login Network Error:', loginErr);
+    showAlert('Network Error', 'Unable to reach the server. Please try again later.');
   } finally {
     setLoading(false);
   }
 };
+
 
 
 

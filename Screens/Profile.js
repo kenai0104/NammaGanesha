@@ -19,20 +19,49 @@ import LinearGradient from 'react-native-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const Profile = ({ navigation }) => {
-  const [profile, setProfile] = useState({ name: '', email: '', phone: '' });
+  const [profile, setProfile] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    tower: '',
+    flat: '',
+  });
   const [passwords, setPasswords] = useState({ current: '', new: '' });
   const [showPasswordFields, setShowPasswordFields] = useState(false);
 
   useEffect(() => {
     const loadProfileData = async () => {
-      const storedUser = await AsyncStorage.getItem('user');
-      const parsedUser = storedUser ? JSON.parse(storedUser) : {};
-      setProfile({
-        name: parsedUser.name || '',
-        email: parsedUser.email || '',
-        phone: parsedUser.phone || '',
-      });
+      try {
+        const storedUser = await AsyncStorage.getItem('user');
+        const parsedUser = storedUser ? JSON.parse(storedUser) : {};
+
+        if (!parsedUser?.id) {
+          Alert.alert('Error', 'User ID not found. Please login again.');
+          return;
+        }
+
+        // const response = await fetch(`https://testjapa.onrender.com/user-profile/${parsedUser.id}`);
+                const response = await fetch(`https://japa-meev.onrender.com/user-profile/${parsedUser.id}`);
+
+        const data = await response.json();
+
+        if (response.ok) {
+          setProfile({
+            name: data.name || '',
+            email: data.email || '',
+            phone: data.phone || '',
+            tower: data.tower || '',
+            flat: data.flat || '',
+          });
+        } else {
+          console.warn('Failed to fetch user profile:', data.message);
+        }
+      } catch (err) {
+        console.error('Error loading profile:', err);
+        Alert.alert('Error', 'Unable to fetch profile. Please try again.');
+      }
     };
+
     loadProfileData();
   }, []);
 
@@ -49,10 +78,10 @@ const Profile = ({ navigation }) => {
         return;
       }
 
-      const { name, email, phone } = profile;
+      const { name, email, phone, tower, flat } = profile;
 
       if (!name.trim() || !email.trim() || !phone.trim()) {
-        Alert.alert('Error', 'All fields are required.');
+        Alert.alert('Error', 'Name, Email, and Phone are required.');
         return;
       }
 
@@ -60,6 +89,8 @@ const Profile = ({ navigation }) => {
       if (name !== parsedUser.name) updatePayload.name = name;
       if (email !== parsedUser.email) updatePayload.email = email;
       if (phone !== parsedUser.phone) updatePayload.phone = phone;
+      if (tower !== parsedUser.tower) updatePayload.tower = tower;
+      if (flat !== parsedUser.flat) updatePayload.flat = flat;
 
       if (Object.keys(updatePayload).length === 0) {
         Alert.alert('No Changes', 'No fields were changed.');
@@ -68,6 +99,8 @@ const Profile = ({ navigation }) => {
 
       const response = await fetch(
         `https://japa-meev.onrender.com/update-profile/${parsedUser.id}`,
+                // `https://testjapa.onrender.com/update-profile/${parsedUser.id}`,
+
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -107,7 +140,9 @@ const Profile = ({ navigation }) => {
 
     const user = JSON.parse(await AsyncStorage.getItem('user'));
     const res = await fetch(
-      `https://japa-meev.onrender.com/update-password/${user.id}`,
+      // `https://testjapa.onrender.com/update-password/${user.id}`,
+            `https://japa-meev.onrender.com/update-password/${user.id}`,
+
       {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -133,7 +168,9 @@ const Profile = ({ navigation }) => {
         style: 'destructive',
         onPress: async () => {
           const user = JSON.parse(await AsyncStorage.getItem('user'));
-          const res = await fetch(`https://japa-meev.onrender.com/delete/${user.id}`, {
+          // const res = await fetch(`https://testjapa.onrender.com/delete/${user.id}`, {
+                      const res = await fetch(`https://japa-meev.onrender.com/delete/${user.id}`, {
+
             method: 'DELETE',
           });
           if (res.ok) {
@@ -172,7 +209,7 @@ const Profile = ({ navigation }) => {
             <ScrollView contentContainerStyle={styles.formContainer} keyboardShouldPersistTaps="handled">
               <Text style={styles.sectionTitle}>Account Info</Text>
 
-              {['name', 'email', 'phone'].map((field, i) => (
+              {['name', 'email', 'phone', 'tower', 'flat'].map((field, i) => (
                 <TextInput
                   key={i}
                   style={[styles.input, { color: '#000' }]}

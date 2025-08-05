@@ -13,7 +13,7 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// Helper function to format date and time
+// Helper function to format date
 const formatDateForDisplay = (isoDate) => {
   const dateObj = new Date(isoDate);
   const day = String(dateObj.getDate()).padStart(2, '0');
@@ -25,9 +25,8 @@ const formatDateForDisplay = (isoDate) => {
 const History = ({ navigation, route }) => {
   const [historyData, setHistoryData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
   const { id } = route.params;
-
-  
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -37,6 +36,10 @@ const History = ({ navigation, route }) => {
 
         if (response.ok) {
           setHistoryData(data);
+
+          // 🔢 Calculate total japa count
+          const total = data.reduce((sum, record) => sum + (record.japaCount || 0), 0);
+          setTotalCount(total);
         } else {
           console.warn('Error fetching history:', data.message || 'Failed to load history.');
         }
@@ -56,11 +59,7 @@ const History = ({ navigation, route }) => {
 
   return (
     <>
-      <StatusBar
-        translucent
-        backgroundColor="transparent"
-        barStyle="light-content"
-      />
+      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
 
       <LinearGradient colors={['#FF7E5F', '#FEB47B']} style={styles.headerGradient}>
         <SafeAreaView style={styles.safeArea}>
@@ -85,10 +84,14 @@ const History = ({ navigation, route }) => {
             <Text style={styles.loadingText}>Loading history...</Text>
           </View>
         ) : (
-          <ScrollView
-            contentContainerStyle={styles.historyList}
-            showsVerticalScrollIndicator={false}
-          >
+          <ScrollView contentContainerStyle={styles.historyList} showsVerticalScrollIndicator={false}>
+            {/* ✅ Total Japa Count Box */}
+            <View style={styles.totalBox}>
+              <Text style={styles.totalText}>Total Japa Count</Text>
+              <Text style={styles.totalCount}>{totalCount}</Text>
+            </View>
+
+            {/* 🔁 Japa History Records */}
             {historyData.length === 0 ? (
               <Text style={styles.noDataText}>No history records available.</Text>
             ) : (
@@ -121,8 +124,6 @@ const styles = StyleSheet.create({
   },
   headerGradient: {
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
-    // borderBottomLeftRadius: 10,
-    // borderBottomRightRadius: 10,
   },
   header: {
     paddingVertical: 13,
@@ -169,6 +170,30 @@ const styles = StyleSheet.create({
   historyList: {
     paddingHorizontal: 16,
     paddingBottom: 20,
+  },
+  totalBox: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    marginTop: 20,
+    marginBottom: 10,
+    alignItems: 'center',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+  },
+  totalText: {
+    fontSize: 18,
+    color: '#FF7E5F',
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  totalCount: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#333',
   },
   historyCard: {
     backgroundColor: '#fff',

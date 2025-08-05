@@ -17,16 +17,22 @@ import LinearGradient from 'react-native-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Footer from './Footer';
+import { useFocusEffect } from '@react-navigation/native';
+import { Picker } from '@react-native-picker/picker';
+import DateTimePicker from '@react-native-community/datetimepicker';
+
 
 const Home = ({ navigation }) => {
   const [formData, setFormData] = useState({
-  name: '',
-  tower: '',
-  flat: '',
-  japaName: '',
-  japaCount: '',
-  date: '',  // manual date input
-});
+    name: '',
+    tower: '',
+    flat: '',
+    japaName: '',
+    japaCount: '',
+    customJapaCount: '', // new field
+    date: '',
+  });
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
 
   const [loading, setLoading] = useState(false);
@@ -35,176 +41,133 @@ const Home = ({ navigation }) => {
   const [id, setId] = useState('');
 
   const formatDateInput = (text) => {
-  // Remove non-numeric characters
-  const cleaned = text.replace(/\D/g, '');
-
-  let formatted = '';
-  if (cleaned.length <= 2) {
-    formatted = cleaned;
-  } else if (cleaned.length <= 4) {
-    formatted = `${cleaned.slice(0, 2)}-${cleaned.slice(2)}`;
-  } else {
-    formatted = `${cleaned.slice(0, 2)}-${cleaned.slice(2, 4)}-${cleaned.slice(4, 8)}`;
-  }
-
-  return formatted;
-};
-
-
-useEffect(() => {
-  const loadUser = async () => {
-    try {
-      const storedUser = await AsyncStorage.getItem('user');
-      if (storedUser) {
-        const user = JSON.parse(storedUser);
-        setName(user.name);
-        setId(user.id);
-      }
-    } catch (err) {
-      console.error('AsyncStorage error:', err);
+    const cleaned = text.replace(/\D/g, '');
+    let formatted = '';
+    if (cleaned.length <= 2) {
+      formatted = cleaned;
+    } else if (cleaned.length <= 4) {
+      formatted = `${cleaned.slice(0, 2)}-${cleaned.slice(2)}`;
+    } else {
+      formatted = `${cleaned.slice(0, 2)}-${cleaned.slice(2, 4)}-${cleaned.slice(4, 8)}`;
     }
+    return formatted;
   };
 
-  loadUser();
-}, []);
+  useFocusEffect(
+    React.useCallback(() => {
+      const loadUserAndProfile = async () => {
+        try {
+          const storedUser = await AsyncStorage.getItem('user');
+          if (storedUser) {
+            const user = JSON.parse(storedUser);
+            setName(user.name);
+            setId(user.id);
 
-const handleSubmit = async () => {
-  try {
-    const storedUser = await AsyncStorage.getItem('user');
+            const response = await fetch(`https://japa-meev.onrender.com/user-profile/${user.id}`);
+            const data = await response.json();
 
-    if (!storedUser) {
-      Alert.alert(
-        "Not Logged In",
-        "Please log in or register to submit your Japa record.",
-        [
-          { text: "Login", onPress: () => navigation.replace('Login') },
-          { text: "Register", onPress: () => navigation.replace('Register') },
-          { text: "Cancel", style: "cancel" }
-        ]
-      );
-      return;
-    }
+            if (response.ok) {
+              setFormData((prevData) => ({
+                ...prevData,
+                name: data.name || '',
+                tower: data.tower || '',
+                flat: data.flat || '',
+              }));
+            }
+          }
+        } catch (err) {
+          console.error('Error during focus refresh:', err);
+        }
+      };
 
-    const user = JSON.parse(storedUser);
-    if (!user.id || !user.name) {
-      Alert.alert("Error", "Invalid user data. Please login again.");
-      await AsyncStorage.removeItem('user');
-      navigation.replace('Login');
-      return;
-    }
+      loadUserAndProfile();
+    }, [])
+  );
 
-    setId(user.id);
-    setName(user.name);
+  const handleSubmit = async () => {
+    try {
+      const storedUser = await AsyncStorage.getItem('user');
+      if (!storedUser) {
+        Alert.alert(
+          "Not Logged In",
+          "Please log in or register to submit your Japa record.",
+          [
+            { text: "Login", onPress: () => navigation.replace('Login') },
+            { text: "Register", onPress: () => navigation.replace('Register') },
+            { text: "Cancel", style: "cancel" }
+          ]
+        );
+        return;
+      }
 
-    const { name, tower, flat, japaName, japaCount, date } = formData;
-    const newErrors = {};
+      const user = JSON.parse(storedUser);
+      const { name, tower, flat, japaName, japaCount, customJapaCount, date } = formData;
+      const newErrors = {};
 
-    if (!name.trim()) newErrors.name = 'Name is required.';
-    if (!tower.trim()) newErrors.tower = 'Tower is required.';
-    if (!flat.trim()) newErrors.flat = 'Flat is required.';
-    if (!japaName.trim()) newErrors.japaName = 'Japa Name is required.';
-    if (!japaCount.trim()) {
-      newErrors.japaCount = 'Japa Count is required.';
-    } else if (isNaN(japaCount) || parseInt(japaCount) <= 0) {
-      newErrors.japaCount = 'Must be a positive number.';
-    }
+      if (!name.trim()) newErrors.name = 'Name is required.';
+      if (!tower.trim()) newErrors.tower = 'Tower is required.';
+      if (!flat.trim()) newErrors.flat = 'Flat is required.';
+      if (!japaName.trim()) newErrors.japaName = 'Japa Name is required.';
 
-    // Validate and reformat the date
-    const dateRegex = /^\d{2}-\d{2}-\d{4}$/;
-    if (!date.trim()) {
-      newErrors.date = 'Date is required.';
-    } else if (!dateRegex.test(date)) {
-      newErrors.date = 'Date must be in DD-MM-YYYY format.';
-    }
+      const finalCount = japaCount === 'custom' ? customJapaCount : japaCount;
+      if (!finalCount) {
+        newErrors.japaCount = 'Japa Count is required.';
+      } else if (isNaN(finalCount) || parseInt(finalCount) <= 0) {
+        newErrors.japaCount = 'Must be a positive number.';
+      }
 
-    if (Object.keys(newErrors).length > 0) {
-      setValidationErrors(newErrors);
-      return;
-    }
+      const dateRegex = /^\d{2}-\d{2}-\d{4}$/;
+      if (!date.trim()) {
+        newErrors.date = 'Date is required.';
+      } else if (!dateRegex.test(date)) {
+        newErrors.date = 'Date must be in DD-MM-YYYY format.';
+      }
 
-    // Convert date from DD-MM-YYYY to YYYY-MM-DD
-    const [day, month, year] = date.split('-');
-    const isoFormattedDate = `${year}-${month}-${day}`;
+      if (Object.keys(newErrors).length > 0) {
+        setValidationErrors(newErrors);
+        return;
+      }
 
-    setValidationErrors({});
-    const payload = {
-      name,
-      tower,
-      flat,
-      date: isoFormattedDate,
-      japaName,
-      japaCount: parseInt(japaCount, 10),
-      userId: user.id,
-    };
+      const [day, month, year] = date.split('-');
+      const isoFormattedDate = `${year}-${month}-${day}`;
 
-    setLoading(true);
-    const response = await fetch('https://japa-meev.onrender.com/posts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-
-    const data = await response.json();
-    setLoading(false);
-
-    if (response.ok) {
-      setFormData({
-        name,
-        tower: '',
-        flat: '',
-        japaName: '',
-        japaCount: '',
-        date: '',
+      setLoading(true);
+      const response = await fetch('https://japa-meev.onrender.com/posts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          tower,
+          flat,
+          date: isoFormattedDate,
+          japaName,
+          japaCount: parseInt(finalCount, 10),
+          userId: user.id,
+        }),
       });
-      navigation.navigate('History', { id: user.id });
-    } else {
-      setValidationErrors({ general: data.message || 'Submission failed' });
+
+      const data = await response.json();
+      setLoading(false);
+
+      if (response.ok) {
+        setFormData({
+          name,
+          tower: '',
+          flat: '',
+          japaName: '',
+          japaCount: '',
+          customJapaCount: '',
+          date: '',
+        });
+        navigation.navigate('History', { id: user.id });
+      } else {
+        setValidationErrors({ general: data.message || 'Submission failed' });
+      }
+    } catch (error) {
+      setLoading(false);
+      setValidationErrors({ general: 'Server error. Try again later.' });
     }
-  } catch (error) {
-    setLoading(false);
-    setValidationErrors({ general: 'Server error. Try again later.' });
-  }
-};
-
-
-const goToRequest = () => navigation.navigate('RequestForm', { id });
-
-const goToProfile = async() => {
-    const storedUser = await AsyncStorage.getItem('user');
-  if (storedUser) {
-    const user = JSON.parse(storedUser);
-    navigation.navigate('Profile', { id: user.id });
-  } else {
-    Alert.alert(
-      "Login Required",
-      "Please log in to view your Profile",
-      [
-        { text: "Login", onPress: () => navigation.replace('Login') },
-        { text: "Cancel", style: "cancel" }
-      ]
-    );
-  }
-};
-
-
-
-const goToHistory = async () => {
-  const storedUser = await AsyncStorage.getItem('user');
-  if (storedUser) {
-    const user = JSON.parse(storedUser);
-    navigation.navigate('History', { id: user.id });
-  } else {
-    Alert.alert(
-      "Login Required",
-      "Please log in to view your Japa history.",
-      [
-        { text: "Login", onPress: () => navigation.replace('Login') },
-        { text: "Cancel", style: "cancel" }
-      ]
-    );
-  }
-};
-
+  };
 
   return (
     <>
@@ -212,40 +175,33 @@ const goToHistory = async () => {
       <LinearGradient colors={['#FF7E5F', '#FEB47B']} style={styles.headerGradient}>
         <SafeAreaView edges={['top']} style={styles.safeAreaTop}>
           <View style={styles.header}>
-            <View style={styles.nameWrapper}>
-              <Text
-                style={styles.headerTitle}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                Hi {nameA}
-              </Text>
-            </View>
-         <View style={styles.iconContainer}>
-  {id ? (
-    <TouchableOpacity
-      onPress={() => {
-        Alert.alert('Logout', 'Are you sure you want to log out?', [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Logout',
-            style: 'destructive',
-            onPress: async () => {
-              await AsyncStorage.removeItem('user');
-              navigation.replace('Login');
-            },
-          },
-        ]);
-      }}
-    >
-      <Image source={require('../assets/power-off.png')} style={styles.headerIcon} />
-    </TouchableOpacity>
-  ) : null}
-</View>
+            <Text style={styles.headerTitle}>Hi {nameA}</Text>
+            {id && (
+              <TouchableOpacity
+              onPress={() => {
+                Alert.alert(
+                  'Logout Confirmation',
+                  'Are you sure you want to logout?',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Logout',
+                      style: 'destructive',
+                      onPress: async () => {
+                        await AsyncStorage.removeItem('user');
+                        navigation.replace('Login');
+                      },
+                    },
+                  ],
+                  { cancelable: true }
+                );
+              }}
+            >
+              <Image source={require('../assets/power-off.png')} style={styles.headerIcon} />
+            </TouchableOpacity>
 
-
+            )}
           </View>
-
         </SafeAreaView>
       </LinearGradient>
 
@@ -254,30 +210,20 @@ const goToHistory = async () => {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={{ flex: 1 }}
         >
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
+          <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
             <Image source={require('../assets/om.jpg')} style={styles.logo} />
 
-            <Text style={{ 
-              textAlign: 'center', 
-              marginBottom: 30, 
-              color: 'brown' 
-            }}>
-            Namma Ganesha supports your daily Japa practice and enables you to submit devotional prayer requests with ease.
+            <Text style={{ textAlign: 'center', marginBottom: 30, color: 'brown' }}>
+              Namma Ganesha supports your daily Japa practice and enables you to submit devotional prayer requests with ease.
             </Text>
 
-
-
             <View style={styles.formCard}>
-              {['name', 'tower', 'flat', 'japaName', 'japaCount'].map((field, index) => (
+              {['name', 'tower', 'flat', 'japaName'].map((field, index) => (
                 <View key={index} style={styles.inputGroup}>
                   <TextInput
                     style={styles.input}
-                    placeholder={field === 'japaCount' ? 'Japa Count' : field.charAt(0).toUpperCase() + field.slice(1)}
-                    keyboardType={field === 'japaCount' ? 'numeric' : 'default'}
+                    placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
+                    keyboardType="default"
                     value={formData[field]}
                     onChangeText={(text) => setFormData({ ...formData, [field]: text })}
                     placeholderTextColor="#aaa"
@@ -288,16 +234,72 @@ const goToHistory = async () => {
                 </View>
               ))}
 
-             <TextInput
-              style={styles.input}
-              placeholder="Date (DD-MM-YYYY)"
-              value={formData.date}
-              onChangeText={(text) =>
-                setFormData({ ...formData, date: formatDateInput(text) })
-              }
-              keyboardType="numeric"
-              placeholderTextColor="#aaa"
-            />
+              {/* Picker for Japa Count */}
+              <View style={styles.inputGroup}>
+              <View style={[styles.input, styles.pickerWrapper]}>
+                <Picker
+                  selectedValue={formData.japaCount}
+                  onValueChange={(value) => setFormData({ ...formData, japaCount: value })}
+                  style={[styles.picker, { color: formData.japaCount ? '#000' : '#aaa' }]}
+                  dropdownIconColor="#555"
+                >
+                  <Picker.Item label="Select Japa Count" value="" />
+                  <Picker.Item label="108" value="108" />
+                  <Picker.Item label="116" value="116" />
+                  <Picker.Item label="1008" value="1008" />
+                  <Picker.Item label="Custom" value="custom" />
+                </Picker>
+              </View>
+
+              {validationErrors.japaCount && (
+                <Text style={styles.errorText}>{validationErrors.japaCount}</Text>
+              )}
+            </View>
+
+
+              {/* Custom count input */}
+              {formData.japaCount === 'custom' && (
+                <View style={styles.inputGroup}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter custom count"
+                    keyboardType="numeric"
+                    value={formData.customJapaCount}
+                    onChangeText={(text) => setFormData({ ...formData, customJapaCount: text })}
+                    placeholderTextColor="#aaa"
+                  />
+                </View>
+              )}
+
+              {/* Date input */}
+             <View style={styles.inputGroup}>
+              <TouchableOpacity
+                style={[styles.input, { justifyContent: 'center' }]}
+                onPress={() => setShowDatePicker(true)}
+              >
+                <Text style={{ color: formData.date ? '#000' : '#aaa', fontSize: 17 }}>
+                  {formData.date || 'Select Date (DD-MM-YYYY)'}
+                </Text>
+              </TouchableOpacity>
+
+              {showDatePicker && (
+                <DateTimePicker
+                  value={new Date()}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={(event, selectedDate) => {
+                    setShowDatePicker(Platform.OS === 'ios'); // keep open on iOS
+                    if (selectedDate) {
+                      const day = selectedDate.getDate().toString().padStart(2, '0');
+                      const month = (selectedDate.getMonth() + 1).toString().padStart(2, '0');
+                      const year = selectedDate.getFullYear();
+                      setFormData({ ...formData, date: `${day}-${month}-${year}` });
+                    }
+                  }}
+                  maximumDate={new Date()} 
+                />
+              )}
+            </View>
 
               {validationErrors.general && (
                 <Text style={[styles.errorText, { textAlign: 'center', marginTop: 10 }]}>
@@ -321,13 +323,16 @@ const goToHistory = async () => {
         </KeyboardAvoidingView>
       </SafeAreaView>
 
-      <Footer onHistoryPress={goToHistory} onRequestPress={goToRequest} onProfilePress={goToProfile} />
+      <Footer
+        onHistoryPress={() => navigation.navigate('History', { id })}
+        onRequestPress={() => navigation.navigate('RequestForm', { id })}
+        onProfilePress={() => navigation.navigate('Profile', { id })}
+      />
     </>
   );
 };
 
 export default Home;
-
 
 const styles = StyleSheet.create({
   headerGradient: {
@@ -422,5 +427,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 4,
     marginLeft: 6,
+  },
+  pickerWrapper: {
+    paddingHorizontal: 8,
+    borderRadius: 14,
+    backgroundColor: '#fff',
+    elevation: 2,
+    overflow: 'hidden',
+  },
+
+  picker: {
+    height: 54,
+    width: '100%',
   },
 });

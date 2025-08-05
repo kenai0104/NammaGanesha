@@ -82,8 +82,8 @@ android {
         applicationId "com.japatracker"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 12
-        versionName "2.2.8"
+        versionCode 13
+        versionName "2.2.9"
     }
     signingConfigs {
         debug {
@@ -110,6 +110,7 @@ android {
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
+    implementation 'com.google.android.play:app-update:2.1.0'
 
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")

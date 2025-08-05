@@ -18,6 +18,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback } from 'react';
+import DateTimePicker from '@react-native-community/datetimepicker';
+
+
 
 const RequestForm = ({ navigation }) => {
   const [formData, setFormData] = useState({
@@ -33,33 +38,52 @@ const RequestForm = ({ navigation }) => {
   const [id, setId] = useState('');
   const [errors, setErrors] = useState({});
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
 
-useEffect(() => {
-  const loadUser = async () => {
-    try {
-      const storedUser = await AsyncStorage.getItem('user');
-      const parsedUser = storedUser ? JSON.parse(storedUser) : null;
+useFocusEffect(
+  useCallback(() => {
+    const loadUserAndProfile = async () => {
+      try {
+        const storedUser = await AsyncStorage.getItem('user');
+        const parsedUser = storedUser ? JSON.parse(storedUser) : null;
 
-      if (parsedUser?.id) {
-        setIsLoggedIn(true);
-        setId(parsedUser.id);
-        setFormData((prev) => ({
-          ...prev,
-          phone: parsedUser.phone || '',
-        }));
-      } else {
-        setIsLoggedIn(false);
+        if (parsedUser?.id) {
+          setIsLoggedIn(true);
+          setId(parsedUser.id);
+
+          setFormData(prev => ({
+            ...prev,
+            phone: parsedUser.phone || '',
+          }));
+
+          // const response = await fetch(`https://testjapa.onrender.com/user-profile/${parsedUser.id}`);
+                    const response = await fetch(`https://japa-meev.onrender.com/user-profile/${parsedUser.id}`);
+
+          const profileData = await response.json();
+
+          if (response.ok) {
+            setFormData(prev => ({
+              ...prev,
+              name: profileData.name || '',
+              tower: profileData.tower || '',
+              flat: profileData.flat || '',
+            }));
+          } else {
+            console.warn('Profile fetch failed:', profileData.message);
+          }
+        } else {
+          setIsLoggedIn(false);
+        }
+      } catch (error) {
+        console.error('AsyncStorage/Profile error:', error);
+        Alert.alert('Error', 'Failed to load user profile.');
       }
-    } catch (error) {
-      console.error('AsyncStorage error:', error);
-      Alert.alert('Storage Error', 'Failed to load user data.');
-    }
-  };
+    };
 
-  loadUser();
-}, []);
-
+    loadUserAndProfile();
+  }, [])
+);
 
 
   const handleChange = (field, value) => {
@@ -77,111 +101,110 @@ useEffect(() => {
     }
   };
 
-const handleSubmit = async () => {
-  try {
-    const storedUser = await AsyncStorage.getItem('user');
+  const handleSubmit = async () => {
+    try {
+      const storedUser = await AsyncStorage.getItem('user');
 
-    // Robust check for login presence
-    if (!storedUser || storedUser === 'null' || storedUser === '{}' || storedUser === 'undefined') {
+      if (!storedUser || storedUser === 'null' || storedUser === '{}' || storedUser === 'undefined') {
+        Alert.alert(
+          'Login Required',
+          'To submit a prayer request, please log in first.',
+          [
+            { text: 'Login', onPress: () => navigation.replace('Login') },
+            { text: 'Cancel', style: 'cancel' },
+          ]
+        );
+        return;
+      }
+
+      const user = JSON.parse(storedUser);
+      const userId = user?.id;
+      const phone = user?.phone;
+
+      if (!userId || !phone) {
+        await AsyncStorage.removeItem('user');
+        Alert.alert('Invalid Session', 'Your session has expired. Please log in again.');
+        navigation.replace('Login');
+        return;
+      }
+
+      const { name, tower, flat, pooja, date } = formData;
+      const newErrors = {};
+
+      if (!name.trim()) newErrors.name = 'Name is required.';
+      if (!tower.trim()) newErrors.tower = 'Tower is required.';
+      if (!flat.trim()) newErrors.flat = 'Flat is required.';
+      if (!pooja.trim()) newErrors.pooja = 'Pooja details required.';
+      if (!date.trim()) newErrors.date = 'Date is required.';
+      else if (!/^\d{2}-\d{2}-\d{4}$/.test(date)) newErrors.date = 'Use format: DD-MM-YYYY.';
+
+      if (Object.keys(newErrors).length > 0) {
+        setErrors(newErrors);
+        return;
+      }
+
+      setErrors({});
+
       Alert.alert(
-        'Login Required',
-        'To submit a prayer request, please log in first.',
+        'Confirm Submission',
+        `Please confirm your details:\n\nName: ${name}\nPhone: ${phone}\nTower: ${tower}\nFlat: ${flat}\nPooja: ${pooja}\nDate: ${date}`,
         [
-          { text: 'Login', onPress: () => navigation.replace('Login') },
           { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Submit',
+            onPress: async () => {
+              setLoading(true);
+              const payload = {
+                name,
+                phone,
+                tower,
+                flat,
+                date,
+                poojaName: pooja,
+                userId,
+              };
+
+              try {
+                
+                const response = await fetch('https://japa-meev.onrender.com/request', {
+                                  // const response = await fetch('https://testjapa.onrender.com/request', {
+
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(payload),
+                });
+
+                const data = await response.json();
+                setLoading(false);
+
+                if (response.ok) {
+                  setFormData({
+                    name: '',
+                    tower: '',
+                    flat: '',
+                    pooja: '',
+                    date: '',
+                    phone: '',
+                  });
+                  navigation.navigate('Success');
+                } else {
+                  Alert.alert('Error', data?.message || 'Submission failed. Please try again.');
+                }
+              } catch (error) {
+                setLoading(false);
+                console.error('Submission error:', error);
+                Alert.alert('Network Error', 'Unable to reach server. Try again later.');
+              }
+            },
+          },
         ]
       );
-      return;
+    } catch (error) {
+      setLoading(false);
+      console.error('handleSubmit error:', error);
+      Alert.alert('Error', 'Something went wrong. Please try again.');
     }
-
-    const user = JSON.parse(storedUser);
-    const userId = user?.id;
-    const phone = user?.phone;
-
-    if (!userId || !phone) {
-      await AsyncStorage.removeItem('user');
-      Alert.alert('Invalid Session', 'Your session has expired. Please log in again.');
-      navigation.replace('Login');
-      return;
-    }
-
-    const { name, tower, flat, pooja, date } = formData;
-    const newErrors = {};
-
-    // Basic validation
-    if (!name.trim()) newErrors.name = 'Name is required.';
-    if (!tower.trim()) newErrors.tower = 'Tower is required.';
-    if (!flat.trim()) newErrors.flat = 'Flat is required.';
-    if (!pooja.trim()) newErrors.pooja = 'Pooja details required.';
-    if (!date.trim()) newErrors.date = 'Date is required.';
-    else if (!/^\d{2}-\d{2}-\d{4}$/.test(date)) newErrors.date = 'Use format: DD-MM-YYYY.';
-
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
-    }
-
-    setErrors({}); // Clear previous errors
-
-    // Confirmation alert
-    Alert.alert(
-      'Confirm Submission',
-      `Please confirm your details:\n\nName: ${name}\nPhone: ${phone}\nTower: ${tower}\nFlat: ${flat}\nPooja: ${pooja}\nDate: ${date}`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Submit',
-          onPress: async () => {
-            setLoading(true);
-
-            const payload = {
-              name,
-              phone,
-              tower,
-              flat,
-              date,
-              poojaName: pooja,
-              userId,
-            };
-
-            try {
-              const response = await fetch('https://japa-meev.onrender.com/request', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-              });
-
-              const data = await response.json();
-              setLoading(false);
-
-              if (response.ok) {
-                setFormData({
-                  name: '',
-                  tower: '',
-                  flat: '',
-                  pooja: '',
-                  date: '',
-                });
-                navigation.navigate('Success');
-              } else {
-                Alert.alert('Error', data?.message || 'Submission failed. Please try again.');
-              }
-            } catch (error) {
-              setLoading(false);
-              console.error('Submission error:', error);
-              Alert.alert('Network Error', 'Unable to reach server. Try again later.');
-            }
-          },
-        },
-      ]
-    );
-  } catch (error) {
-    setLoading(false);
-    console.error('handleSubmit error:', error);
-    Alert.alert('Error', 'Something went wrong. Please try again.');
-  }
-};
-
+  };
 
   return (
     <>
@@ -208,11 +231,14 @@ const handleSubmit = async () => {
               {['name', 'tower', 'flat'].map((field, index) => (
                 <View key={index} style={styles.inputGroup}>
                   <TextInput
-                    style={styles.input}
+                    style={[
+                      styles.input,
+                      // REMOVE the line below to keep it editable
+                      // { backgroundColor: '#f3f3f3' } 
+                    ]}
                     placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
                     value={formData[field]}
-                    keyboardType="default"
-                    onChangeText={(text) => handleChange(field, text)}
+                    onChangeText={(text) => handleChange(field, text)}  // ✅ allow updates
                     placeholderTextColor="#aaa"
                   />
                   {errors[field] && <Text style={styles.errorText}>{errors[field]}</Text>}
@@ -235,16 +261,37 @@ const handleSubmit = async () => {
               </View>
 
               <View style={styles.inputGroup}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Date (DD-MM-YYYY)"
-                  value={formData.date}
-                  onChangeText={(text) => handleChange('date', text)}
-                  keyboardType="numeric"
-                  placeholderTextColor="#aaa"
-                />
-                {errors.date && <Text style={styles.errorText}>{errors.date}</Text>}
-              </View>
+                  <TouchableOpacity
+                    style={[styles.input, { justifyContent: 'center' }]}
+                    onPress={() => setShowDatePicker(true)}
+                  >
+                    <Text style={{ color: formData.date ? '#000' : '#aaa', fontSize: 16 }}>
+                      {formData.date || 'Select Date (DD-MM-YYYY)'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {showDatePicker && (
+                    <DateTimePicker
+                      value={new Date()}
+                      mode="date"
+                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                      minimumDate={new Date()} // ✅ This line freezes past dates
+                      onChange={(event, selectedDate) => {
+                        setShowDatePicker(false);
+                        if (selectedDate) {
+                          const day = selectedDate.getDate().toString().padStart(2, '0');
+                          const month = (selectedDate.getMonth() + 1).toString().padStart(2, '0');
+                          const year = selectedDate.getFullYear();
+                          const formatted = `${day}-${month}-${year}`;
+                          setFormData({ ...formData, date: formatted });
+                        }
+                      }}
+                    />
+                  )}
+
+                  {errors.date && <Text style={styles.errorText}>{errors.date}</Text>}
+                </View>
+
 
               {loading ? (
                 <ActivityIndicator size="large" color="#FF7E5F" style={{ marginTop: 20 }} />
@@ -262,6 +309,7 @@ const handleSubmit = async () => {
 };
 
 export default RequestForm;
+
 
 const styles = StyleSheet.create({
   headerGradient: {
