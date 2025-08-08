@@ -123,9 +123,11 @@ const handleLogin = async () => {
         return;
       }
 
-      const { tower, flat } = profileData;
-      if (!tower || !flat) {
-        console.log('➡ Redirecting to Address screen (missing tower/flat)');
+      const { tower, flat, nakshatra, gotra, rasi } = profileData;
+
+      // Step 5: Check if the necessary fields are empty
+      if (!tower || !flat || !nakshatra || !gotra || !rasi) {
+        console.log('➡ Redirecting to Address screen (missing tower/flat/nakshatra/gotra/rasi)');
         navigation.replace('Address', { name, id: _id });
       } else {
         console.log('➡ Redirecting to Home screen');
@@ -144,9 +146,6 @@ const handleLogin = async () => {
     setLoading(false);
   }
 };
-
-
-
 
 
   return (

@@ -1,3 +1,4 @@
+// (Same imports as before)
 import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
@@ -21,7 +22,6 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
-
 const Home = ({ navigation }) => {
   const [formData, setFormData] = useState({
     name: '',
@@ -29,29 +29,17 @@ const Home = ({ navigation }) => {
     flat: '',
     japaName: '',
     japaCount: '',
-    customJapaCount: '', // new field
+    customJapaCount: '',
     date: '',
+    japaMantra: '',
+    customJapaMantra: '',
   });
+
   const [showDatePicker, setShowDatePicker] = useState(false);
-
-
   const [loading, setLoading] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
   const [nameA, setName] = useState('');
   const [id, setId] = useState('');
-
-  const formatDateInput = (text) => {
-    const cleaned = text.replace(/\D/g, '');
-    let formatted = '';
-    if (cleaned.length <= 2) {
-      formatted = cleaned;
-    } else if (cleaned.length <= 4) {
-      formatted = `${cleaned.slice(0, 2)}-${cleaned.slice(2)}`;
-    } else {
-      formatted = `${cleaned.slice(0, 2)}-${cleaned.slice(2, 4)}-${cleaned.slice(4, 8)}`;
-    }
-    return formatted;
-  };
 
   useFocusEffect(
     React.useCallback(() => {
@@ -84,90 +72,105 @@ const Home = ({ navigation }) => {
     }, [])
   );
 
-  const handleSubmit = async () => {
-    try {
-      const storedUser = await AsyncStorage.getItem('user');
-      if (!storedUser) {
-        Alert.alert(
-          "Not Logged In",
-          "Please log in or register to submit your Japa record.",
-          [
-            { text: "Login", onPress: () => navigation.replace('Login') },
-            { text: "Register", onPress: () => navigation.replace('Register') },
-            { text: "Cancel", style: "cancel" }
-          ]
-        );
-        return;
-      }
-
-      const user = JSON.parse(storedUser);
-      const { name, tower, flat, japaName, japaCount, customJapaCount, date } = formData;
-      const newErrors = {};
-
-      if (!name.trim()) newErrors.name = 'Name is required.';
-      if (!tower.trim()) newErrors.tower = 'Tower is required.';
-      if (!flat.trim()) newErrors.flat = 'Flat is required.';
-      if (!japaName.trim()) newErrors.japaName = 'Japa Name is required.';
-
-      const finalCount = japaCount === 'custom' ? customJapaCount : japaCount;
-      if (!finalCount) {
-        newErrors.japaCount = 'Japa Count is required.';
-      } else if (isNaN(finalCount) || parseInt(finalCount) <= 0) {
-        newErrors.japaCount = 'Must be a positive number.';
-      }
-
-      const dateRegex = /^\d{2}-\d{2}-\d{4}$/;
-      if (!date.trim()) {
-        newErrors.date = 'Date is required.';
-      } else if (!dateRegex.test(date)) {
-        newErrors.date = 'Date must be in DD-MM-YYYY format.';
-      }
-
-      if (Object.keys(newErrors).length > 0) {
-        setValidationErrors(newErrors);
-        return;
-      }
-
-      const [day, month, year] = date.split('-');
-      const isoFormattedDate = `${year}-${month}-${day}`;
-
-      setLoading(true);
-      const response = await fetch('https://japa-meev.onrender.com/posts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name,
-          tower,
-          flat,
-          date: isoFormattedDate,
-          japaName,
-          japaCount: parseInt(finalCount, 10),
-          userId: user.id,
-        }),
-      });
-
-      const data = await response.json();
-      setLoading(false);
-
-      if (response.ok) {
-        setFormData({
-          name,
-          tower: '',
-          flat: '',
-          japaName: '',
-          japaCount: '',
-          customJapaCount: '',
-          date: '',
-        });
-        navigation.navigate('History', { id: user.id });
-      } else {
-        setValidationErrors({ general: data.message || 'Submission failed' });
-      }
-    } catch (error) {
-      setLoading(false);
-      setValidationErrors({ general: 'Server error. Try again later.' });
+const handleSubmit = async () => {
+  try {
+    const storedUser = await AsyncStorage.getItem('user');
+    if (!storedUser) {
+      Alert.alert(
+        "Not Logged In",
+        "Please log in or register to submit your Japa record.",
+        [
+          { text: "Login", onPress: () => navigation.replace('Login') },
+          { text: "Register", onPress: () => navigation.replace('Register') },
+          { text: "Cancel", style: "cancel" }
+        ]
+      );
+      return;
     }
-  };
+
+    const user = JSON.parse(storedUser);
+    const {
+      name,
+      tower,
+      flat,
+      japaName,
+      customJapaName,
+      japaCount,
+      customJapaCount,
+      date,
+    } = formData;
+
+    const newErrors = {};
+    if (!name.trim()) newErrors.name = 'Name is required.';
+    if (!tower.trim()) newErrors.tower = 'Tower is required.';
+    if (!flat.trim()) newErrors.flat = 'Flat is required.';
+    if (!japaName.trim()) newErrors.japaName = 'Japa Name is required.';
+
+    const finalCount = japaCount === 'custom' ? customJapaCount : japaCount;
+    if (!finalCount) {
+      newErrors.japaCount = 'Japa Count is required.';
+    } else if (isNaN(finalCount) || parseInt(finalCount) <= 0) {
+      newErrors.japaCount = 'Must be a positive number.';
+    }
+
+    const dateRegex = /^\d{2}-\d{2}-\d{4}$/;
+    if (!date.trim()) {
+      newErrors.date = 'Date is required.';
+    } else if (!dateRegex.test(date)) {
+      newErrors.date = 'Date must be in DD-MM-YYYY format.';
+    }
+
+    if (japaName === 'custom' && !customJapaName.trim()) {
+      newErrors.japaName = 'Custom Mantra cannot be empty.';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setValidationErrors(newErrors);
+      return;
+    }
+
+    const [day, month, year] = date.split('-');
+    const isoFormattedDate = `${year}-${month}-${day}`;
+
+    setLoading(true);
+    const response = await fetch('https://japa-meev.onrender.com/posts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name,
+        tower,
+        flat,
+        date: isoFormattedDate,
+        japaName: japaName === 'custom' ? customJapaName : japaName,
+        japaCount: parseInt(finalCount, 10),
+        userId: user.id,
+      }),
+    });
+
+    const data = await response.json();
+    setLoading(false);
+
+    if (response.ok) {
+      setFormData({
+        name,
+        tower: '',
+        flat: '',
+        japaName: '',
+        customJapaName: '',
+        japaCount: '',
+        customJapaCount: '',
+        date: '',
+      });
+      navigation.navigate('History', { id: user.id });
+    } else {
+      setValidationErrors({ general: data.message || 'Submission failed' });
+    }
+  } catch (error) {
+    setLoading(false);
+    setValidationErrors({ general: 'Server error. Try again later.' });
+  }
+};
+
 
   return (
     <>
@@ -178,28 +181,27 @@ const Home = ({ navigation }) => {
             <Text style={styles.headerTitle}>Hi {nameA}</Text>
             {id && (
               <TouchableOpacity
-              onPress={() => {
-                Alert.alert(
-                  'Logout Confirmation',
-                  'Are you sure you want to logout?',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    {
-                      text: 'Logout',
-                      style: 'destructive',
-                      onPress: async () => {
-                        await AsyncStorage.removeItem('user');
-                        navigation.replace('Login');
+                onPress={() => {
+                  Alert.alert(
+                    'Logout Confirmation',
+                    'Are you sure you want to logout?',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Logout',
+                        style: 'destructive',
+                        onPress: async () => {
+                          await AsyncStorage.removeItem('user');
+                          navigation.replace('Login');
+                        },
                       },
-                    },
-                  ],
-                  { cancelable: true }
-                );
-              }}
-            >
-              <Image source={require('../assets/power-off.png')} style={styles.headerIcon} />
-            </TouchableOpacity>
-
+                    ],
+                    { cancelable: true }
+                  );
+                }}
+              >
+                <Image source={require('../assets/power-off.png')} style={styles.headerIcon} />
+              </TouchableOpacity>
             )}
           </View>
         </SafeAreaView>
@@ -212,13 +214,12 @@ const Home = ({ navigation }) => {
         >
           <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
             <Image source={require('../assets/om.jpg')} style={styles.logo} />
-
             <Text style={{ textAlign: 'center', marginBottom: 30, color: 'brown' }}>
               Namma Ganesha supports your daily Japa practice and enables you to submit devotional prayer requests with ease.
             </Text>
 
             <View style={styles.formCard}>
-              {['name', 'tower', 'flat', 'japaName'].map((field, index) => (
+              {['name', 'tower', 'flat'].map((field, index) => (
                 <View key={index} style={styles.inputGroup}>
                   <TextInput
                     style={styles.input}
@@ -234,30 +235,60 @@ const Home = ({ navigation }) => {
                 </View>
               ))}
 
-              {/* Picker for Japa Count */}
+              {/* Japa Name Picker */}
               <View style={styles.inputGroup}>
-              <View style={[styles.input, styles.pickerWrapper]}>
-                <Picker
-                  selectedValue={formData.japaCount}
-                  onValueChange={(value) => setFormData({ ...formData, japaCount: value })}
-                  style={[styles.picker, { color: formData.japaCount ? '#000' : '#aaa' }]}
-                  dropdownIconColor="#555"
-                >
-                  <Picker.Item label="Select Japa Count" value="" />
-                  <Picker.Item label="108" value="108" />
-                  <Picker.Item label="116" value="116" />
-                  <Picker.Item label="1008" value="1008" />
-                  <Picker.Item label="Custom" value="custom" />
-                </Picker>
+                <View style={[styles.input, styles.pickerWrapper]}>
+                  <Picker
+                    selectedValue={formData.japaName}
+                    onValueChange={(value) => setFormData({ ...formData, japaName: value })}
+                    style={[styles.picker, { color: formData.japaName ? '#000' : '#aaa' }]}
+                    dropdownIconColor="#555"
+                  >
+                    <Picker.Item label="Select Japa Mantra" value="" />
+                    <Picker.Item label="Ganapathy Moola Mantra" value="Ganapathy Moola Mantra" />
+                    <Picker.Item label="Subrahmanya Mantra" value="Subrahmanya Mantra" />
+                    <Picker.Item label="Custom" value="custom" />
+                  </Picker>
+                </View>
+                {validationErrors.japaName && (
+                  <Text style={styles.errorText}>{validationErrors.japaName}</Text>
+                )}
               </View>
 
-              {validationErrors.japaCount && (
-                <Text style={styles.errorText}>{validationErrors.japaCount}</Text>
+              {formData.japaName === 'custom' && (
+                <View style={styles.inputGroup}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter custom mantra"
+                    value={formData.customJapaName}
+                    onChangeText={(text) => setFormData({ ...formData, customJapaName: text })}
+                    placeholderTextColor="#aaa"
+                  />
+                </View>
               )}
-            </View>
 
 
-              {/* Custom count input */}
+              {/* Japa Count Picker */}
+              <View style={styles.inputGroup}>
+                <View style={[styles.input, styles.pickerWrapper]}>
+                  <Picker
+                    selectedValue={formData.japaCount}
+                    onValueChange={(value) => setFormData({ ...formData, japaCount: value })}
+                    style={[styles.picker, { color: formData.japaCount ? '#000' : '#aaa' }]}
+                    dropdownIconColor="#555"
+                  >
+                    <Picker.Item label="Select Japa Count" value="" />
+                    <Picker.Item label="108" value="108" />
+                    <Picker.Item label="116" value="116" />
+                    <Picker.Item label="1008" value="1008" />
+                    <Picker.Item label="Custom" value="custom" />
+                  </Picker>
+                </View>
+                {validationErrors.japaCount && (
+                  <Text style={styles.errorText}>{validationErrors.japaCount}</Text>
+                )}
+              </View>
+
               {formData.japaCount === 'custom' && (
                 <View style={styles.inputGroup}>
                   <TextInput
@@ -271,35 +302,38 @@ const Home = ({ navigation }) => {
                 </View>
               )}
 
-              {/* Date input */}
-             <View style={styles.inputGroup}>
-              <TouchableOpacity
-                style={[styles.input, { justifyContent: 'center' }]}
-                onPress={() => setShowDatePicker(true)}
-              >
-                <Text style={{ color: formData.date ? '#000' : '#aaa', fontSize: 17 }}>
-                  {formData.date || 'Select Date (DD-MM-YYYY)'}
-                </Text>
-              </TouchableOpacity>
+              
 
-              {showDatePicker && (
-                <DateTimePicker
-                  value={new Date()}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  onChange={(event, selectedDate) => {
-                    setShowDatePicker(Platform.OS === 'ios'); // keep open on iOS
-                    if (selectedDate) {
-                      const day = selectedDate.getDate().toString().padStart(2, '0');
-                      const month = (selectedDate.getMonth() + 1).toString().padStart(2, '0');
-                      const year = selectedDate.getFullYear();
-                      setFormData({ ...formData, date: `${day}-${month}-${year}` });
-                    }
-                  }}
-                  maximumDate={new Date()} 
-                />
-              )}
-            </View>
+
+              {/* Date Picker */}
+              <View style={styles.inputGroup}>
+                <TouchableOpacity
+                  style={[styles.input, { justifyContent: 'center' }]}
+                  onPress={() => setShowDatePicker(true)}
+                >
+                  <Text style={{ color: formData.date ? '#000' : '#aaa', fontSize: 17 }}>
+                    {formData.date || 'Select Date (DD-MM-YYYY)'}
+                  </Text>
+                </TouchableOpacity>
+
+                {showDatePicker && (
+                  <DateTimePicker
+                    value={new Date()}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={(event, selectedDate) => {
+                      setShowDatePicker(Platform.OS === 'ios');
+                      if (selectedDate) {
+                        const day = selectedDate.getDate().toString().padStart(2, '0');
+                        const month = (selectedDate.getMonth() + 1).toString().padStart(2, '0');
+                        const year = selectedDate.getFullYear();
+                        setFormData({ ...formData, date: `${day}-${month}-${year}` });
+                      }
+                    }}
+                    maximumDate={new Date()}
+                  />
+                )}
+              </View>
 
               {validationErrors.general && (
                 <Text style={[styles.errorText, { textAlign: 'center', marginTop: 10 }]}>
@@ -324,10 +358,40 @@ const Home = ({ navigation }) => {
       </SafeAreaView>
 
       <Footer
-        onHistoryPress={() => navigation.navigate('History', { id })}
-        onRequestPress={() => navigation.navigate('RequestForm', { id })}
-        onProfilePress={() => navigation.navigate('Profile', { id })}
-      />
+          onHistoryPress={() => {
+            if (id) {
+              navigation.navigate('History', { id });
+            } else {
+              Alert.alert(
+                'Login Required',
+                'Please log in to view your history.',
+                [
+                  { text: 'Login', onPress: () => navigation.replace('Login') },
+
+                  { text: 'Cancel', style: 'cancel' },
+                ],
+                { cancelable: true }
+              );
+            }
+          }}
+            onRequestPress={() => navigation.navigate('RequestForm', { id })}          onProfilePress={() => {
+            if (id) {
+              navigation.navigate('Profile', { id });
+            } else {
+              Alert.alert(
+                'Login Required',
+                'Please log in to view your profile.',
+                [
+                  { text: 'Login', onPress: () => navigation.replace('Login') },
+
+                  { text: 'Cancel', style: 'cancel' },
+                ],
+                { cancelable: true }
+              );
+            }
+          }}
+        />
+
     </>
   );
 };
